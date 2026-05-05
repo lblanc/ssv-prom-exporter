@@ -79,3 +79,11 @@ then Windows service mode.
   `Scrape` wrapper (`internal/collectors/scrape.go`) so `ssv_up` and
   `ssv_scrape_duration_seconds` are emitted once, with a `collector`
   label, by the wrapper rather than each child.
+- 2026-05-05 — REST endpoint failover. Client now holds an ordered list
+  of `(baseURL, ServerHost)` pairs (primary first, backups appended
+  from `/servers[].IpAddresses` after each scrape). Failover triggers
+  on transient errors only (net / 5xx). Sticky preferred endpoint
+  (5 min TTL) avoids hammering a dead primary. CIDR allowlist filters
+  discovered IPs (default = primary's `/24`). Two new flags:
+  `-bases` (cold-start backup seed) and `-backup-cidrs` (filter
+  override).

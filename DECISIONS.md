@@ -79,6 +79,50 @@ Trade-off: a MITM on the mgmt-server-to-exporter path could read
 credentials. Deployments that care can supply a CA via a future flag and
 flip `-insecure` off.
 
+### REST endpoint failover via discovered server IPs
+Decision: the client carries an ordered list of `(baseURL, ServerHost)`
+pairs — primary first, backups appended after each successful `/servers`
+fetch. `Get` loops on transient errors (net errors, HTTP 5xx); 4xx is
+non-transient and short-circuits.
+Rationale: SSV groups have multiple management nodes. If one is down,
+the exporter should keep scraping via another. Discovering IPs from the
+API itself avoids static config drift.
+Trade-off: bootstrap requires the primary on first scrape; the `-bases`
+flag pre-seeds the list to cover that. `ServerHost` must match the IP we
+hit (verified empirically — hostnames return HTTP 400), so each entry is
+fully self-contained.
+
+### Sticky preferred endpoint with 5-minute TTL
+Decision: after a successful call, the working endpoint index is sticky;
+subsequent calls start from it. The TTL (`preferredTTL = 5 min`) makes
+the next call retry the primary first, so recovery is detected.
+Rationale: without stickiness every call retries the primary, wasting
+`N_dead × dialTimeout` during an outage. Sticky means only the first
+call after the outage pays that cost.
+Trade-off: up to 5 minutes of lag before the exporter notices the
+primary recovered. Acceptable for a Prometheus exporter scraping every
+15-30 s.
+
+### Backup CIDR filter, default = primary's /24
+Decision: discovered IPs are filtered through an allowlist of CIDRs; the
+default, when the primary URL is an IPv4, is that IP's `/24`.
+Rationale: SSV's `/servers` returns every IP bound on each node (mgmt,
+iSCSI, mirror, IPv6 link-local). Most aren't valid REST targets;
+attempting them on failover blows the scrape budget (3 s dial timeout
+× N dead backups). The `/24` default matches the typical "all mgmt IPs
+on one VLAN" deployment.
+Trade-off: multi-subnet management deployments must override via
+`-backup-cidrs`. To disable filtering, pass `0.0.0.0/0`.
+
+### IPv4-only failover
+Decision: discovered IPv6 addresses (link-local and public) are skipped.
+Rationale: SSV's REST service often binds IPv4 only in IIS; link-local
+IPv6 (`fe80::/10`) is never useful as a backup target. Keeping the
+failover list IPv4-only avoids dial timeouts on never-going-to-work
+backups.
+Trade-off: IPv6-only deployments would need code changes. None observed
+on SSV.
+
 ## What to watch out for
 - The `ServerHost` HTTP header is mandatory on every REST call. Without
   it, the API returns 400 with `ErrorCode 9` (`"No ServerHost header was
@@ -99,3 +143,7 @@ flip `-insecure` off.
   `Web.config`). Faster scrapes than that won't see new data.
 - Self-signed TLS on the mgmt server requires `InsecureSkipVerify` in the
   Go HTTP client (or a configured custom CA pool, planned later).
+- The `ServerHost` header value must match the IP we are hitting. The
+  hostnames published in `/servers[].HostName` (e.g. `SDS1-LAB-PVE`) are
+  rejected with HTTP 400, even when reaching the right physical host.
+  This is why each failover endpoint stores its own `ServerHost = IP`.

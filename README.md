@@ -39,14 +39,16 @@ The binary reads its connection settings from flags or env vars:
 
 | Flag         | Env var      | Description                                                   |
 |--------------|--------------|---------------------------------------------------------------|
-| `-url`       | `SSV_URL`    | SSV REST base URL, e.g. `https://10.0.0.1`                    |
-| `-user`      | `SSV_USER`   | SSV username (typically a local Windows account)              |
-| `-pass`      | `SSV_PASS`   | SSV password                                                  |
-| `-host`      | `SSV_HOST`   | `ServerHost` header value; defaults to the host of `-url`     |
-| `-insecure`  | —            | Skip TLS verification (default `true`; SSV ships self-signed) |
-| `-ping`      | —            | Probe `/serverGroups`, print the response, exit               |
-| `-listen`    | —            | Listen address for the Prometheus HTTP exporter, e.g. `:9876` |
-| `-version`   | —            | Print version and exit                                        |
+| `-url`            | `SSV_URL`           | SSV REST base URL, e.g. `https://10.0.0.1`                                                                          |
+| `-user`           | `SSV_USER`          | SSV username (typically a local Windows account)                                                                    |
+| `-pass`           | `SSV_PASS`          | SSV password                                                                                                        |
+| `-host`           | `SSV_HOST`          | `ServerHost` header value; defaults to the host of `-url`                                                           |
+| `-insecure`       | —                   | Skip TLS verification (default `true`; SSV ships self-signed)                                                       |
+| `-bases`          | `SSV_BASES`         | Comma-separated list of backup IPs to fall through to before the first scrape (overwritten by discovered IPs)       |
+| `-backup-cidrs`   | `SSV_BACKUP_CIDRS`  | CIDRs that filter discovered backup IPs. Default: primary's `/24` if `-url` is an IPv4. Pass `0.0.0.0/0` to disable. |
+| `-ping`           | —                   | Probe `/serverGroups`, print the response, exit                                                                     |
+| `-listen`         | —                   | Listen address for the Prometheus HTTP exporter, e.g. `:9876`                                                       |
+| `-version`        | —                   | Print version and exit                                                                                              |
 
 Run as exporter:
 
@@ -80,12 +82,35 @@ SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
   ./bin/ssv-prom-exporter -ping
 ```
 
+## High availability / failover
+
+The exporter falls over to a backup management server when the primary is
+unreachable. Mechanics:
+
+- After each successful inventory scrape, every IP from
+  `/servers[].IpAddresses` is added to the backup list (filtered through
+  `-backup-cidrs`, default = the primary's `/24`).
+- On a transient failure (network error, timeout, HTTP 5xx), the next
+  endpoint is tried. HTTP 4xx (auth, missing header) is **not** a
+  failover trigger — those are configuration bugs.
+- The last-known-good endpoint is "sticky" for 5 minutes, so during an
+  outage only the first call pays the dial-timeout cost. After 5 min
+  the next call retries the primary, detecting recovery.
+- The `ServerHost` header is rewritten per endpoint (each backup uses
+  its own IP); SSV rejects hostname-based `ServerHost` values with
+  HTTP 400.
+
+Pass `-bases ip1,ip2,...` to seed the backup list before the first
+scrape (useful so the exporter is HA-resilient even on cold start).
+
 ## Roadmap
 
 - [x] Typed REST client (`internal/ssv`) with Basic auth, mandatory
       `ServerHost` header, and `.NET /Date(...)/` parsing.
 - [x] Inventory collector + HTTP server (`/metrics` via `promhttp`).
 - [x] Health collector (`ssv_monitor_state`, `ssv_alerts_total`).
+- [x] REST endpoint failover (auto-discovery from `/servers`, sticky
+      preferred endpoint, CIDR-filtered backup list).
 - [ ] Performance collector — parallel `/performance/{id}` calls behind
       a bounded worker pool, exposing `*_bytes_total` /
       `*_operations_total` counters.
@@ -97,7 +122,9 @@ SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
 ## Notes / gotchas
 
 - The `ServerHost` HTTP header is mandatory on every REST call; missing
-  it returns `HTTP 400` with `ErrorCode 9`.
+  it returns `HTTP 400` with `ErrorCode 9`. The value must be the IP
+  being hit — hostnames are rejected with HTTP 400 even when they
+  resolve to a valid mgmt server.
 - Some SSV IDs contain colons and curly braces (notably pool IDs of the
   form `<server-uuid>:{<pool-uuid>}`); they must be path-escaped before
   being interpolated into URLs.

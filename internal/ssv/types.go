@@ -40,6 +40,7 @@ type Server struct {
 	IsLicensed             bool   `json:"IsLicensed"`
 	LicenseExceeded        bool   `json:"LicenseExceeded"`
 	OutOfCompliance        bool   `json:"OutOfCompliance"`
+	IpAddresses            []string `json:"IpAddresses"`
 }
 
 // Pool is the subset of /pools fields surfaced as metrics.

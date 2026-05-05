@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,6 +32,8 @@ func main() {
 		pass       = flag.String("pass", os.Getenv("SSV_PASS"), "SSV password")
 		serverHost = flag.String("host", os.Getenv("SSV_HOST"), "Value of the ServerHost header (defaults to host of -url)")
 		insecure   = flag.Bool("insecure", true, "Skip TLS verification (SSV mgmt servers typically use self-signed certs)")
+		bases       = flag.String("bases", os.Getenv("SSV_BASES"), "Comma-separated list of backup IPs to fall through to if the primary -url fails. Discovered IPs from /servers replace this list on every successful inventory scrape.")
+		backupCIDRs = flag.String("backup-cidrs", os.Getenv("SSV_BACKUP_CIDRS"), "Comma-separated CIDRs to filter discovered backup IPs (e.g. 10.0.0.0/24). Defaults to the primary's /24 if -url is an IPv4. Pass 0.0.0.0/0 to disable filtering.")
 		ping       = flag.Bool("ping", false, "Probe /serverGroups and print the response, then exit")
 		listen     = flag.String("listen", "", "Run as Prometheus exporter, listen on this address (e.g. :9876)")
 		showVer    = flag.Bool("version", false, "Print version and exit")
@@ -55,11 +58,19 @@ func main() {
 		Password:   *pass,
 		ServerHost: *serverHost,
 		Insecure:   *insecure,
+		Logger:     log,
+	}
+	if *backupCIDRs != "" {
+		cfg.BackupCIDRs = strings.Split(*backupCIDRs, ",")
 	}
 	client, err := ssv.New(cfg)
 	if err != nil {
 		log.Error("client init", "err", err)
 		os.Exit(1)
+	}
+	if *bases != "" {
+		client.SetBackups(strings.Split(*bases, ","))
+		log.Info("static backups configured", "endpoints", client.Endpoints())
 	}
 
 	if *ping {

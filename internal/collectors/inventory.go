@@ -142,6 +142,17 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		}
 	}
 
+	// Refresh the client's failover backup list with all IPs reported by
+	// the servers in the group. The client de-dups against the primary
+	// host and filters out unusable IPs (loopback, link-local, IPv6).
+	if serr == nil {
+		var ips []string
+		for _, s := range servers {
+			ips = append(ips, s.IpAddresses...)
+		}
+		c.client.SetBackups(ips)
+	}
+
 	for _, g := range groups {
 		labels := []string{g.ID, g.Caption}
 		ch <- prometheus.MustNewConstMetric(c.groupState, prometheus.GaugeValue, float64(g.State), labels...)
