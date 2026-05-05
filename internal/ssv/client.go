@@ -362,6 +362,38 @@ func (c *Client) AlertsCount(ctx context.Context) (int, error) {
 	return len(v), nil
 }
 
+// CounterMap is a flat name → integer mapping for SSV's
+// /performance/{id} responses. Each object type (server, pool,
+// virtualDisk, etc.) exposes a different set of counters; callers
+// look up the keys they care about and skip the rest.
+type CounterMap map[string]int64
+
+// Performance fetches the performance counter snapshot for a single
+// instance. The SSV REST endpoint always returns an array of exactly
+// one snapshot; this function unwraps it. CollectionTime and other
+// non-numeric fields are dropped from the returned map.
+func (c *Client) Performance(ctx context.Context, id string) (CounterMap, error) {
+	body, err := c.GetRaw(ctx, "performance/"+url.PathEscape(id))
+	if err != nil {
+		return nil, err
+	}
+	var arr []map[string]json.RawMessage
+	if err := json.Unmarshal(body, &arr); err != nil {
+		return nil, fmt.Errorf("ssv: decode performance/%s: %w", id, err)
+	}
+	if len(arr) == 0 {
+		return CounterMap{}, nil
+	}
+	out := make(CounterMap, len(arr[0]))
+	for k, v := range arr[0] {
+		var n int64
+		if err := json.Unmarshal(v, &n); err == nil {
+			out[k] = n
+		}
+	}
+	return out, nil
+}
+
 // hostOf extracts the host (without scheme or path) from a URL string.
 func hostOf(u string) string {
 	if parsed, err := url.Parse(u); err == nil && parsed.Hostname() != "" {

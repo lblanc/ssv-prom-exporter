@@ -4,9 +4,8 @@ Prometheus exporter for [DataCore SANsymphony](https://www.datacore.com/products
 (SSV), packaged as a native Windows service.
 
 > **Status:** v0. The binary exposes a Prometheus `/metrics` endpoint
-> backed by inventory and health collectors (server groups, servers,
-> pools, virtual disks, monitors, alerts). The performance collector
-> and Windows service mode come next.
+> backed by inventory, health and performance collectors. Windows
+> service mode comes next.
 
 ## What it will expose
 
@@ -48,6 +47,7 @@ The binary reads its connection settings from flags or env vars:
 | `-backup-cidrs`   | `SSV_BACKUP_CIDRS`  | CIDRs that filter discovered backup IPs. Default: primary's `/24` if `-url` is an IPv4. Pass `0.0.0.0/0` to disable. |
 | `-ping`           | —                   | Probe `/serverGroups`, print the response, exit                                                                     |
 | `-listen`         | —                   | Listen address for the Prometheus HTTP exporter, e.g. `:9876`                                                       |
+| `-perf-workers`   | —                   | Concurrent `/performance/{id}` calls per scrape (default `8`)                                                       |
 | `-version`        | —                   | Print version and exit                                                                                              |
 
 Run as exporter:
@@ -71,6 +71,17 @@ Then `curl http://127.0.0.1:9876/metrics`. The current series include
 - `ssv_virtual_disk_{status,size_bytes,type,offline}`
 - `ssv_monitor_state{monitor_id,template,target_id,caption}`
 - `ssv_alerts_total`
+- `ssv_server_{read_bytes_total,write_bytes_total,read_ops_total,
+  write_ops_total,cache_read_hits_total,cache_read_misses_total,
+  cache_write_hits_total,cache_write_misses_total,cache_size_bytes,
+  cache_free_bytes}`
+- `ssv_pool_{read_bytes_total,write_bytes_total,read_ops_total,
+  write_ops_total,capacity_bytes,used_bytes,available_bytes,
+  reserved_bytes,reclamation_bytes,oversubscribed_bytes}`
+- `ssv_virtual_disk_{read_bytes_total,write_bytes_total,
+  read_ops_total,write_ops_total,cache_read_hits_total,
+  cache_read_misses_total,cache_write_hits_total,
+  cache_write_misses_total}`
 
 State integers are exposed as-is — the SSV vendor enum mapping is not
 documented in the REST help.
@@ -111,9 +122,9 @@ scrape (useful so the exporter is HA-resilient even on cold start).
 - [x] Health collector (`ssv_monitor_state`, `ssv_alerts_total`).
 - [x] REST endpoint failover (auto-discovery from `/servers`, sticky
       preferred endpoint, CIDR-filtered backup list).
-- [ ] Performance collector — parallel `/performance/{id}` calls behind
-      a bounded worker pool, exposing `*_bytes_total` /
-      `*_operations_total` counters.
+- [x] Performance collector — parallel `/performance/{id}` calls behind
+      a bounded worker pool, emitting per-server / per-pool /
+      per-virtual-disk IO counters and capacity gauges.
 - [ ] Windows service mode (`install` / `uninstall` / run-as-service via
       `golang.org/x/sys/windows/svc`, EventLog wiring).
 - [ ] Retry/backoff on transient SSV failures.

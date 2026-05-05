@@ -46,16 +46,15 @@ SSV_URL=https://10.12.110.11 SSV_USER=administrator SSV_PASS=*** \
 ```
 
 ## Current focus
-Inventory + health collectors live on `/metrics` (314 series in the lab).
-Next: performance collector (`/performance/{id}` with a worker pool),
-then Windows service mode.
+Inventory + health + performance collectors all live on `/metrics`
+(404 series in the lab). Next: Windows service mode.
 
 ## Remaining tasks
-- [ ] internal/collectors/performance: parallel /performance/{id} fetch with
-      worker pool, `*_bytes_total` / `*_operations_total` counters
 - [ ] internal/svc: Windows service mode (install / uninstall / run as service),
       EventLog wiring, fall-back to console mode under -foreground
-- [ ] Retry/backoff on transient SSV failures
+- [ ] Retry/backoff on transient SSV failures (beyond the failover loop)
+- [ ] Verify the unit of SSV's `Total*Time` counters and add the latency
+      / IO-time metrics that were skipped from the v0 perf set
 - [ ] YAML config replacing env vars when more knobs are needed
 - [ ] CI: go vet + go test + cross-compile check
 
@@ -87,3 +86,12 @@ then Windows service mode.
   discovered IPs (default = primary's `/24`). Two new flags:
   `-bases` (cold-start backup seed) and `-backup-cidrs` (filter
   override).
+- 2026-05-05 — Performance collector
+  (`internal/collectors/performance.go`). Bounded worker pool
+  (default 8 concurrent) fans out `GET /performance/{id}` for every
+  server, pool and virtual disk known from inventory. Emits
+  `ssv_{server,pool,virtual_disk}_*` counters and gauges:
+  per-direction IO bytes/ops, cache hits/misses, server cache
+  size/free, pool capacity / used / available / reserved /
+  reclamation / oversubscribed. New flag `-perf-workers`. 10 perf
+  calls in the lab → ~470 ms scrape; 90 new series, 404 total.

@@ -35,8 +35,9 @@ func main() {
 		bases       = flag.String("bases", os.Getenv("SSV_BASES"), "Comma-separated list of backup IPs to fall through to if the primary -url fails. Discovered IPs from /servers replace this list on every successful inventory scrape.")
 		backupCIDRs = flag.String("backup-cidrs", os.Getenv("SSV_BACKUP_CIDRS"), "Comma-separated CIDRs to filter discovered backup IPs (e.g. 10.0.0.0/24). Defaults to the primary's /24 if -url is an IPv4. Pass 0.0.0.0/0 to disable filtering.")
 		ping       = flag.Bool("ping", false, "Probe /serverGroups and print the response, then exit")
-		listen     = flag.String("listen", "", "Run as Prometheus exporter, listen on this address (e.g. :9876)")
-		showVer    = flag.Bool("version", false, "Print version and exit")
+		listen      = flag.String("listen", "", "Run as Prometheus exporter, listen on this address (e.g. :9876)")
+		perfWorkers = flag.Int("perf-workers", 8, "Number of concurrent /performance/{id} calls during a scrape")
+		showVer     = flag.Bool("version", false, "Print version and exit")
 	)
 	flag.Parse()
 
@@ -87,6 +88,7 @@ func main() {
 	reg.MustRegister(collectors.NewScrape(log, 30*time.Second,
 		collectors.NewInventory(client, log),
 		collectors.NewHealth(client, log),
+		collectors.NewPerformance(client, log, *perfWorkers),
 	))
 
 	mux := http.NewServeMux()
