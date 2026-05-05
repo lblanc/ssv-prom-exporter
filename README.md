@@ -1,5 +1,7 @@
 # ssv-prom-exporter
 
+[![CI](https://github.com/lblanc/ssv-prom-exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/lblanc/ssv-prom-exporter/actions/workflows/ci.yml)
+
 Prometheus exporter for [DataCore SANsymphony](https://www.datacore.com/products/sansymphony/)
 (SSV), packaged as a native Windows service.
 
@@ -217,8 +219,9 @@ ssv-prom-exporter.exe -uninstall
 - [x] YAML config (`-config` flag) with strict unknown-field rejection
       and flag-override precedence — keeps secrets out of the SCM
       `ImagePath`.
+- [x] CI on GitHub Actions: `go vet`, `go build`, `go test`, plus a
+      `windows/amd64` cross-compile check on every push.
 - [ ] Retry/backoff on transient SSV failures.
-- [ ] YAML config replacing env vars when more knobs are needed.
 
 ## Notes / gotchas
 

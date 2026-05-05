@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build (linux/amd64)
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...
+
+      - name: cross-compile (windows/amd64)
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: go build -o bin/ssv-prom-exporter.exe ./cmd/ssv-prom-exporter

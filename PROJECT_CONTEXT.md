@@ -53,7 +53,6 @@ service mode all in. Next round of polish is config + retry + CI.
 - [ ] Retry/backoff on transient SSV failures (beyond the failover loop)
 - [ ] Verify the unit of SSV's `Total*Time` counters and add the latency
       / IO-time metrics that were skipped from the v0 perf set
-- [ ] CI: go vet + go test + cross-compile check
 
 ## Completed
 - 2026-05-05 — REST API discovery against PSP 20 lab; all key endpoints
@@ -108,3 +107,8 @@ service mode all in. Next round of polish is config + retry + CI.
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — GitHub Actions CI (`.github/workflows/ci.yml`):
+  single job on `ubuntu-latest` running `go vet`, `go build ./...`,
+  `go test ./...`, and a `windows/amd64` cross-compile build. Triggers
+  on every push and `workflow_dispatch`. Go version pinned via
+  `go-version-file: go.mod`. README badge wired.
