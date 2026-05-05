@@ -46,16 +46,15 @@ SSV_URL=https://10.12.110.11 SSV_USER=administrator SSV_PASS=*** \
 ```
 
 ## Current focus
-Inventory + health + performance collectors all live on `/metrics`
-(404 series in the lab). Next: Windows service mode.
+Feature-complete v0: three collectors + REST failover + Windows
+service mode all in. Next round of polish is config + retry + CI.
 
 ## Remaining tasks
-- [ ] internal/svc: Windows service mode (install / uninstall / run as service),
-      EventLog wiring, fall-back to console mode under -foreground
 - [ ] Retry/backoff on transient SSV failures (beyond the failover loop)
 - [ ] Verify the unit of SSV's `Total*Time` counters and add the latency
       / IO-time metrics that were skipped from the v0 perf set
-- [ ] YAML config replacing env vars when more knobs are needed
+- [ ] YAML config replacing env vars / flags (also lets us move secrets
+      out of the SCM ImagePath)
 - [ ] CI: go vet + go test + cross-compile check
 
 ## Completed
@@ -95,3 +94,12 @@ Inventory + health + performance collectors all live on `/metrics`
   size/free, pool capacity / used / available / reserved /
   reclamation / oversubscribed. New flag `-perf-workers`. 10 perf
   calls in the lab → ~470 ms scrape; 90 new series, 404 total.
+- 2026-05-05 — Windows service mode (`internal/svc/`). Same binary
+  runs interactively or under the SCM, picked at startup via
+  `svc.IsWindowsService()`. New flags `-install` / `-uninstall` /
+  `-svc-name` / `-svc-display` / `-svc-description`. Build-tagged
+  files (`svc_windows.go` for the real impl, `svc_other.go` for
+  Linux stubs) keep the project building on both platforms.
+  Service-mode slog handler writes to the registered Event Log
+  source. Cross-compiled `bin/ssv-prom-exporter.exe` validated;
+  Linux console mode tested with SIGINT graceful shutdown.

@@ -4,8 +4,9 @@ Prometheus exporter for [DataCore SANsymphony](https://www.datacore.com/products
 (SSV), packaged as a native Windows service.
 
 > **Status:** v0. The binary exposes a Prometheus `/metrics` endpoint
-> backed by inventory, health and performance collectors. Windows
-> service mode comes next.
+> backed by inventory, health and performance collectors, and ships
+> with native Windows service install / uninstall / run-as-service
+> support.
 
 ## What it will expose
 
@@ -48,6 +49,11 @@ The binary reads its connection settings from flags or env vars:
 | `-ping`           | —                   | Probe `/serverGroups`, print the response, exit                                                                     |
 | `-listen`         | —                   | Listen address for the Prometheus HTTP exporter, e.g. `:9876`                                                       |
 | `-perf-workers`   | —                   | Concurrent `/performance/{id}` calls per scrape (default `8`)                                                       |
+| `-install`        | —                   | Register the binary as a Windows service and exit (Windows only)                                                    |
+| `-uninstall`      | —                   | Remove the Windows service and exit (Windows only)                                                                  |
+| `-svc-name`       | —                   | Service name (default `ssv-prom-exporter`)                                                                          |
+| `-svc-display`    | —                   | Service display name shown in `services.msc`                                                                        |
+| `-svc-description`| —                   | Service description text                                                                                            |
 | `-version`        | —                   | Print version and exit                                                                                              |
 
 Run as exporter:
@@ -114,6 +120,56 @@ unreachable. Mechanics:
 Pass `-bases ip1,ip2,...` to seed the backup list before the first
 scrape (useful so the exporter is HA-resilient even on cold start).
 
+## Windows service
+
+Cross-compile from Linux:
+
+```sh
+make build-windows   # produces bin/ssv-prom-exporter.exe
+```
+
+Copy the `.exe` to the Windows target, then from an **elevated** prompt:
+
+```bat
+ssv-prom-exporter.exe ^
+  -install ^
+  -url https://10.0.0.1 ^
+  -user administrator ^
+  -pass S3cret! ^
+  -listen :9876
+```
+
+This:
+
+- Registers a service named `ssv-prom-exporter` (configurable via
+  `-svc-name`), starting automatically as `LocalSystem`.
+- Bakes the runtime flags above into the SCM ImagePath, so the service
+  comes back up with the same arguments after every reboot.
+- Registers an Event Log source under the service name; service-mode
+  logs land in **Windows Logs → Application** filtered on that source.
+
+Manage with the standard tools:
+
+```bat
+sc start  ssv-prom-exporter
+sc stop   ssv-prom-exporter
+sc query  ssv-prom-exporter
+services.msc
+```
+
+Uninstall:
+
+```bat
+ssv-prom-exporter.exe -uninstall
+```
+
+> **Security caveat.** Command-line arguments end up in the SCM
+> `ImagePath`, which is readable by any local admin (and dumped by
+> `sc qc <name>`). Until the YAML config lands, treat the service host
+> as a place where the SSV credentials are visible to the local
+> Administrators group. Either accept that, or use a low-privilege SSV
+> account just for the exporter.
+
 ## Roadmap
 
 - [x] Typed REST client (`internal/ssv`) with Basic auth, mandatory
@@ -125,7 +181,7 @@ scrape (useful so the exporter is HA-resilient even on cold start).
 - [x] Performance collector — parallel `/performance/{id}` calls behind
       a bounded worker pool, emitting per-server / per-pool /
       per-virtual-disk IO counters and capacity gauges.
-- [ ] Windows service mode (`install` / `uninstall` / run-as-service via
+- [x] Windows service mode (`install` / `uninstall` / run-as-service via
       `golang.org/x/sys/windows/svc`, EventLog wiring).
 - [ ] Retry/backoff on transient SSV failures.
 - [ ] YAML config replacing env vars when more knobs are needed.

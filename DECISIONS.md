@@ -123,6 +123,42 @@ backups.
 Trade-off: IPv6-only deployments would need code changes. None observed
 on SSV.
 
+### Single binary for console + Windows service mode
+Decision: the same exe runs interactively (current console flow) or
+under the SCM, picked at startup via `svc.IsWindowsService()`. Service
+mode is implemented in `internal/svc` behind build tags
+(`svc_windows.go` for the real impl, `svc_other.go` for stubs) so the
+project still builds and tests on Linux.
+Rationale: avoids shipping NSSM or a wrapper `.bat`, and keeps `-ping`
+useful from a Windows console for diagnostics. Build-tagged stubs let
+us cross-compile from Linux without breaking either platform.
+Trade-off: the Windows service code path is exercised only on the
+target OS — Linux CI catches package-level mistakes (vet, build) but
+not runtime service semantics.
+
+### EventLog as the slog destination in service mode
+Decision: when launched by the SCM, the slog handler is replaced with
+one that writes to the service's Event Log source (registered by
+`-install`). Levels map to the three EventLog severities
+(Error / Warning / Information).
+Rationale: services have no console; stderr goes to nowhere useful.
+Event Viewer is what Windows ops teams already watch.
+Trade-off: no structured logs in service mode (Event Log entries are
+flattened to a single string). Acceptable for an exporter — Prometheus
+itself is the structured-data sink.
+
+### Service args baked into the SCM ImagePath
+Decision: `-install` copies the explicitly-set runtime flags (other
+than `-install` / `-uninstall` / `-ping` / `-version`) into the
+service's command line via `mgr.CreateService(..., args...)`.
+Rationale: simplest install workflow — one command, no second config
+file to deploy.
+Trade-off: ImagePath is readable by any user with
+`SeQueryServiceConfigPrivilege` (and shown by `sc qc`). Anything
+sensitive (notably `-pass`) is therefore exposed to local admins. The
+install command prints a warning, and a future YAML-config option will
+let operators move credentials to a file with restricted ACLs.
+
 ## What to watch out for
 - The `ServerHost` HTTP header is mandatory on every REST call. Without
   it, the API returns 400 with `ErrorCode 9` (`"No ServerHost header was
