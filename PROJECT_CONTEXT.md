@@ -20,7 +20,7 @@ active
   Builds cross-compile cleanly from Linux (CGO_ENABLED=0).
 
 ## Repository
-- Remote: <to be set>
+- Remote: git@github.com:lblanc/ssv-prom-exporter.git
 - Default branch: main
 
 ## Directory layout
