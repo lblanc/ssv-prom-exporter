@@ -46,20 +46,17 @@ SSV_URL=https://10.12.110.11 SSV_USER=administrator SSV_PASS=*** \
 ```
 
 ## Current focus
-v0 ship: project skeleton + working REST ping. Next: typed REST client,
-inventory collector exposing /metrics.
+Inventory collector live on `/metrics`. Next: health collector
+(`/monitors`, `/alerts`) then performance collector
+(`/performance/{id}` with a worker pool).
 
 ## Remaining tasks
-- [ ] internal/ssv: typed REST client (Basic auth, ServerHost header,
-      .NET date parsing, retry on transient failures)
-- [ ] internal/collectors/inventory: `ssv_up`, `ssv_servers_total`,
-      `ssv_server_state`, `ssv_pool_capacity_bytes`, `ssv_virtual_disk_state`
 - [ ] internal/collectors/health: `ssv_monitor_state`, `ssv_alert_active`
 - [ ] internal/collectors/performance: parallel /performance/{id} fetch with
       worker pool, `*_bytes_total` / `*_operations_total` counters
-- [ ] HTTP server: /metrics endpoint with promhttp
 - [ ] internal/svc: Windows service mode (install / uninstall / run as service),
       EventLog wiring, fall-back to console mode under -foreground
+- [ ] Retry/backoff on transient SSV failures
 - [ ] YAML config replacing env vars when more knobs are needed
 - [ ] CI: go vet + go test + cross-compile check
 
@@ -69,3 +66,11 @@ inventory collector exposing /metrics.
 - 2026-05-05 — Project skeleton: go.mod, cmd entrypoint with `-ping` mode,
   Makefile with linux/windows cross-compile targets, .gitignore, filled
   PROJECT_CONTEXT.md and DECISIONS.md.
+- 2026-05-05 — Typed REST client (`internal/ssv`) with Basic auth, mandatory
+  `ServerHost` header, .NET-date `Time` wrapper, and list helpers for
+  `serverGroups`, `servers`, `pools`, `virtualDisks`. Refactored `-ping`
+  to use it.
+- 2026-05-05 — Inventory collector (`internal/collectors/inventory.go`)
+  exposing 25 `ssv_*` series (group / server / pool / vdisk), wired to
+  `/metrics` via promhttp under a new `-listen` flag. Verified against
+  the lab: `ssv_up=1`, scrape ~200ms, all labels populated.

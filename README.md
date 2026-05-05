@@ -3,9 +3,10 @@
 Prometheus exporter for [DataCore SANsymphony](https://www.datacore.com/products/sansymphony/)
 (SSV), packaged as a native Windows service.
 
-> **Status:** early scaffold. The current binary only supports a `-ping`
-> probe of the SSV REST API. The Prometheus collector surface (the
-> actual `/metrics` endpoint) is not implemented yet.
+> **Status:** v0. The binary exposes a Prometheus `/metrics` endpoint
+> backed by an inventory collector (server groups, servers, pools,
+> virtual disks). Health and performance collectors come next; Windows
+> service mode is not wired yet.
 
 ## What it will expose
 
@@ -32,43 +33,63 @@ make build           # native (the host's GOOS/GOARCH)
 make build-windows   # cross-compile to windows/amd64 (CGO_ENABLED=0)
 ```
 
-## Usage (current `-ping` mode)
+## Usage
 
 The binary reads its connection settings from flags or env vars:
 
-| Flag         | Env var      | Description                                                  |
-|--------------|--------------|--------------------------------------------------------------|
-| `-url`       | `SSV_URL`    | SSV REST base URL, e.g. `https://10.0.0.1`                   |
-| `-user`      | `SSV_USER`   | SSV username (typically a local Windows account)             |
-| `-pass`      | `SSV_PASS`   | SSV password                                                 |
-| `-host`      | `SSV_HOST`   | `ServerHost` header value; defaults to the host of `-url`    |
-| `-insecure`  | —            | Skip TLS verification (default `true`; SSV ships self-signed)|
-| `-ping`      | —            | Probe `/serverGroups` and print the response                 |
-| `-version`   | —            | Print version and exit                                       |
+| Flag         | Env var      | Description                                                   |
+|--------------|--------------|---------------------------------------------------------------|
+| `-url`       | `SSV_URL`    | SSV REST base URL, e.g. `https://10.0.0.1`                    |
+| `-user`      | `SSV_USER`   | SSV username (typically a local Windows account)              |
+| `-pass`      | `SSV_PASS`   | SSV password                                                  |
+| `-host`      | `SSV_HOST`   | `ServerHost` header value; defaults to the host of `-url`     |
+| `-insecure`  | —            | Skip TLS verification (default `true`; SSV ships self-signed) |
+| `-ping`      | —            | Probe `/serverGroups`, print the response, exit               |
+| `-listen`    | —            | Listen address for the Prometheus HTTP exporter, e.g. `:9876` |
+| `-version`   | —            | Print version and exit                                        |
 
-Smoke test against a lab:
+Run as exporter:
+
+```sh
+SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
+  ./bin/ssv-prom-exporter -listen :9876
+```
+
+Then `curl http://127.0.0.1:9876/metrics`. The current series include
+(non-exhaustive):
+
+- `ssv_up`, `ssv_scrape_duration_seconds{collector="inventory"}`
+- `ssv_server_group_{state,storage_used_bytes,storage_max_bytes,
+  out_of_compliance,license_expires_seconds}`
+- `ssv_server_{state,support_state,power_state,cache_state,
+  diagnostic_mode,maintenance_mode,storage_used_bytes,
+  memory_total_bytes,memory_available_bytes,info}`
+- `ssv_pool_{status,presence_status,type,chunk_size_bytes}`
+- `ssv_virtual_disk_{status,size_bytes,type,offline}`
+
+State integers are exposed as-is — the SSV vendor enum mapping is not
+documented in the REST help.
+
+For a quick interactive probe (raw JSON of `/serverGroups`):
 
 ```sh
 SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
   ./bin/ssv-prom-exporter -ping
 ```
 
-A successful run prints the JSON returned by
-`/RestService/rest.svc/1.0/serverGroups`.
-
 ## Roadmap
 
-- Typed REST client (`internal/ssv`) with Basic auth, mandatory
-  `ServerHost` header, retry, and `.NET /Date(...)/` parsing.
-- Inventory collector (`ssv_up`, `ssv_servers_total`, `ssv_server_state`,
-  `ssv_pool_capacity_bytes`, `ssv_virtual_disk_state`).
-- Health collector (`ssv_monitor_state`, `ssv_alert_active`).
-- Performance collector — parallel `/performance/{id}` calls behind a
-  bounded worker pool, exposing `*_bytes_total` / `*_operations_total`.
-- HTTP server (`/metrics` via `promhttp`).
-- Windows service mode (`install` / `uninstall` / run-as-service via
-  `golang.org/x/sys/windows/svc`, EventLog wiring).
-- YAML config replacing env vars when more knobs are needed.
+- [x] Typed REST client (`internal/ssv`) with Basic auth, mandatory
+      `ServerHost` header, and `.NET /Date(...)/` parsing.
+- [x] Inventory collector + HTTP server (`/metrics` via `promhttp`).
+- [ ] Health collector (`ssv_monitor_state`, `ssv_alert_active`).
+- [ ] Performance collector — parallel `/performance/{id}` calls behind
+      a bounded worker pool, exposing `*_bytes_total` /
+      `*_operations_total` counters.
+- [ ] Windows service mode (`install` / `uninstall` / run-as-service via
+      `golang.org/x/sys/windows/svc`, EventLog wiring).
+- [ ] Retry/backoff on transient SSV failures.
+- [ ] YAML config replacing env vars when more knobs are needed.
 
 ## Notes / gotchas
 

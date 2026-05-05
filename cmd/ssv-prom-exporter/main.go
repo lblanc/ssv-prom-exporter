@@ -1,20 +1,25 @@
 // Package main is the entrypoint for ssv-prom-exporter.
 //
-// For v0 the binary only supports a -ping mode that probes the SSV mgmt
-// server's REST API by fetching /serverGroups. The Prometheus collector
-// surface comes in subsequent commits.
+// Two modes:
+//   -ping       one-shot probe of /serverGroups (prints JSON, exits)
+//   -listen :N  starts the Prometheus HTTP exporter on :N
 package main
 
 import (
-	"crypto/tls"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
+	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"github.com/lblanc/ssv-prom-exporter/internal/collectors"
+	"github.com/lblanc/ssv-prom-exporter/internal/ssv"
 )
 
 var version = "dev"
@@ -26,19 +31,17 @@ func main() {
 		pass       = flag.String("pass", os.Getenv("SSV_PASS"), "SSV password")
 		serverHost = flag.String("host", os.Getenv("SSV_HOST"), "Value of the ServerHost header (defaults to host of -url)")
 		insecure   = flag.Bool("insecure", true, "Skip TLS verification (SSV mgmt servers typically use self-signed certs)")
-		ping       = flag.Bool("ping", false, "Probe /serverGroups and print the response")
+		ping       = flag.Bool("ping", false, "Probe /serverGroups and print the response, then exit")
+		listen     = flag.String("listen", "", "Run as Prometheus exporter, listen on this address (e.g. :9876)")
 		showVer    = flag.Bool("version", false, "Print version and exit")
 	)
 	flag.Parse()
 
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
 	if *showVer {
 		fmt.Println(version)
 		return
-	}
-
-	if !*ping {
-		fmt.Fprintln(os.Stderr, "no action selected (try -ping or -version)")
-		os.Exit(2)
 	}
 
 	if *baseURL == "" || *user == "" || *pass == "" {
@@ -46,44 +49,60 @@ func main() {
 		os.Exit(2)
 	}
 
-	host := *serverHost
-	if host == "" {
-		host = strings.TrimPrefix(strings.TrimPrefix(*baseURL, "https://"), "http://")
-		host = strings.SplitN(host, "/", 2)[0]
+	cfg := ssv.Config{
+		BaseURL:    *baseURL,
+		Username:   *user,
+		Password:   *pass,
+		ServerHost: *serverHost,
+		Insecure:   *insecure,
 	}
-
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: *insecure},
-		},
-	}
-
-	url := strings.TrimRight(*baseURL, "/") + "/RestService/rest.svc/1.0/serverGroups"
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	client, err := ssv.New(cfg)
 	if err != nil {
-		fail(err)
-	}
-	req.SetBasicAuth(*user, *pass)
-	req.Header.Set("ServerHost", host)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fail(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fail(err)
-	}
-
-	if resp.StatusCode >= 400 {
-		fmt.Fprintf(os.Stderr, "HTTP %d: %s\n", resp.StatusCode, body)
+		log.Error("client init", "err", err)
 		os.Exit(1)
 	}
 
+	if *ping {
+		runPing(client)
+		return
+	}
+
+	if *listen == "" {
+		fmt.Fprintln(os.Stderr, "no action selected (try -ping, -listen, or -version)")
+		os.Exit(2)
+	}
+
+	reg := prometheus.NewRegistry()
+	reg.MustRegister(collectors.NewInventory(client, log))
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		fmt.Fprintf(w, "ssv-prom-exporter %s\n\nGET /metrics for Prometheus exposition.\n", version)
+	})
+
+	srv := &http.Server{
+		Addr:              *listen,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	log.Info("starting exporter", "addr", *listen, "target", *baseURL)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error("listen failed", "err", err)
+		os.Exit(1)
+	}
+}
+
+func runPing(client *ssv.Client) {
+	body, err := client.GetRaw(context.Background(), "serverGroups")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
 	var pretty any
 	if err := json.Unmarshal(body, &pretty); err != nil {
 		fmt.Println(string(body))
@@ -92,9 +111,4 @@ func main() {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(pretty)
-}
-
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, "error:", err)
-	os.Exit(1)
 }
