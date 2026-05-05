@@ -39,6 +39,7 @@ The binary reads its connection settings from flags or env vars:
 
 | Flag         | Env var      | Description                                                   |
 |--------------|--------------|---------------------------------------------------------------|
+| `-config`         | `SSV_CONFIG`        | Path to a YAML config file. See [Configuration file](#configuration-file)                                            |
 | `-url`            | `SSV_URL`           | SSV REST base URL, e.g. `https://10.0.0.1`                                                                          |
 | `-user`           | `SSV_USER`          | SSV username (typically a local Windows account)                                                                    |
 | `-pass`           | `SSV_PASS`          | SSV password                                                                                                        |
@@ -99,6 +100,23 @@ SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
   ./bin/ssv-prom-exporter -ping
 ```
 
+## Configuration file
+
+Pass `-config <path>` to load settings from a YAML file. See
+[`config.example.yaml`](config.example.yaml) for the full schema. Any
+field can be overridden by an explicit command-line flag (or its
+matching env var); fields left unset fall through to the binary's
+defaults.
+
+Precedence:
+
+```
+explicit flag  >  env var (flag default)  >  YAML  >  built-in default
+```
+
+Unknown YAML keys are rejected at load time so a typo doesn't silently
+leave a setting at its default.
+
 ## High availability / failover
 
 The exporter falls over to a backup management server when the primary is
@@ -128,25 +146,40 @@ Cross-compile from Linux:
 make build-windows   # produces bin/ssv-prom-exporter.exe
 ```
 
-Copy the `.exe` to the Windows target, then from an **elevated** prompt:
+Copy the `.exe` and a YAML config to the Windows target, then from an
+**elevated** prompt:
 
 ```bat
-ssv-prom-exporter.exe ^
-  -install ^
-  -url https://10.0.0.1 ^
-  -user administrator ^
-  -pass S3cret! ^
-  -listen :9876
+:: 1. Drop config.yaml under a directory only Administrators can read.
+mkdir C:\ProgramData\ssv-prom-exporter
+copy config.example.yaml C:\ProgramData\ssv-prom-exporter\config.yaml
+notepad C:\ProgramData\ssv-prom-exporter\config.yaml
+icacls C:\ProgramData\ssv-prom-exporter\config.yaml /inheritance:r /grant:r SYSTEM:F Administrators:F
+
+:: 2. Register the service. Only -config lands in the SCM ImagePath.
+ssv-prom-exporter.exe -install -config C:\ProgramData\ssv-prom-exporter\config.yaml
+sc start ssv-prom-exporter
 ```
 
 This:
 
 - Registers a service named `ssv-prom-exporter` (configurable via
-  `-svc-name`), starting automatically as `LocalSystem`.
-- Bakes the runtime flags above into the SCM ImagePath, so the service
-  comes back up with the same arguments after every reboot.
+  `svc_name` in YAML or `-svc-name`), starting automatically as
+  `LocalSystem`.
+- Bakes only the explicitly-set flags into the SCM ImagePath. With the
+  config-file workflow above, that's just `-config <path>`, so
+  credentials stay in the ACL'ed YAML and out of `sc qc`.
 - Registers an Event Log source under the service name; service-mode
   logs land in **Windows Logs → Application** filtered on that source.
+
+Plain command-line install still works (e.g. for quick tests):
+
+```bat
+ssv-prom-exporter.exe -install -url https://10.0.0.1 -user administrator -pass S3cret! -listen :9876
+```
+
+In that case the binary prints a warning that `-pass` is now visible
+via `sc qc`.
 
 Manage with the standard tools:
 
@@ -163,12 +196,10 @@ Uninstall:
 ssv-prom-exporter.exe -uninstall
 ```
 
-> **Security caveat.** Command-line arguments end up in the SCM
-> `ImagePath`, which is readable by any local admin (and dumped by
-> `sc qc <name>`). Until the YAML config lands, treat the service host
-> as a place where the SSV credentials are visible to the local
-> Administrators group. Either accept that, or use a low-privilege SSV
-> account just for the exporter.
+> **Security note.** Anything passed on the install-time command line
+> ends up in the SCM `ImagePath`, readable by local admins via
+> `sc qc <name>`. Use the YAML config workflow above to keep
+> `-pass` out of that surface.
 
 ## Roadmap
 
@@ -183,6 +214,9 @@ ssv-prom-exporter.exe -uninstall
       per-virtual-disk IO counters and capacity gauges.
 - [x] Windows service mode (`install` / `uninstall` / run-as-service via
       `golang.org/x/sys/windows/svc`, EventLog wiring).
+- [x] YAML config (`-config` flag) with strict unknown-field rejection
+      and flag-override precedence — keeps secrets out of the SCM
+      `ImagePath`.
 - [ ] Retry/backoff on transient SSV failures.
 - [ ] YAML config replacing env vars when more knobs are needed.
 

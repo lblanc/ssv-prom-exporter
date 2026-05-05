@@ -53,8 +53,6 @@ service mode all in. Next round of polish is config + retry + CI.
 - [ ] Retry/backoff on transient SSV failures (beyond the failover loop)
 - [ ] Verify the unit of SSV's `Total*Time` counters and add the latency
       / IO-time metrics that were skipped from the v0 perf set
-- [ ] YAML config replacing env vars / flags (also lets us move secrets
-      out of the SCM ImagePath)
 - [ ] CI: go vet + go test + cross-compile check
 
 ## Completed
@@ -103,3 +101,10 @@ service mode all in. Next round of polish is config + retry + CI.
   Service-mode slog handler writes to the registered Event Log
   source. Cross-compiled `bin/ssv-prom-exporter.exe` validated;
   Linux console mode tested with SIGINT graceful shutdown.
+- 2026-05-06 — YAML config (`internal/config/`, `gopkg.in/yaml.v3`).
+  New `-config` flag loads a typed Config struct; merge-into-flags
+  honors explicit flag > env > YAML > default precedence. Unknown
+  YAML keys are rejected (typo protection). Recommended Windows
+  install flow now bakes only `-config <path>` into the SCM
+  ImagePath, keeping `-pass` out of `sc qc`.
+  `config.example.yaml` ships in the repo.

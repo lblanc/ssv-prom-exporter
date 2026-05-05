@@ -28,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/lblanc/ssv-prom-exporter/internal/collectors"
+	"github.com/lblanc/ssv-prom-exporter/internal/config"
 	"github.com/lblanc/ssv-prom-exporter/internal/ssv"
 	"github.com/lblanc/ssv-prom-exporter/internal/svc"
 )
@@ -36,6 +37,7 @@ var version = "dev"
 
 func main() {
 	var (
+		configPath  = flag.String("config", os.Getenv("SSV_CONFIG"), "Path to a YAML config file. Values are overridden by explicit flags / env vars. Recommended for Windows-service installs to keep credentials out of the SCM ImagePath.")
 		baseURL     = flag.String("url", os.Getenv("SSV_URL"), "SSV REST base URL, e.g. https://10.0.0.1")
 		user        = flag.String("user", os.Getenv("SSV_USER"), "SSV username")
 		pass        = flag.String("pass", os.Getenv("SSV_PASS"), "SSV password")
@@ -54,6 +56,22 @@ func main() {
 		showVer     = flag.Bool("version", false, "Print version and exit")
 	)
 	flag.Parse()
+
+	// Track which flags the user passed explicitly on the command line,
+	// so the YAML merge below knows which ones it can safely override.
+	explicit := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+
+	if *configPath != "" {
+		yc, err := config.Load(*configPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		mergeConfig(yc, explicit, baseURL, user, pass, serverHost, insecure,
+			bases, backupCIDRs, listen, perfWorkers,
+			svcName, svcDisplay, svcDesc)
+	}
 
 	if *showVer {
 		fmt.Println(version)
@@ -77,7 +95,9 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Fprintf(os.Stderr, "service %q installed\n", svcCfg.Name)
-		fmt.Fprintln(os.Stderr, "note: command-line args (including -pass) are stored in the SCM ImagePath and readable via `sc qc`. Use env-based config or tighten service ACLs for production.")
+		if *pass != "" && !explicit["config"] {
+			fmt.Fprintln(os.Stderr, "warning: -pass was baked into the SCM ImagePath. For production, move credentials to a YAML config and re-install with -config <path>.")
+		}
 		return
 	}
 	if *uninstall {
@@ -193,13 +213,54 @@ func serveExporter(ctx context.Context, log *slog.Logger, addr string, reg *prom
 	}
 }
 
+// mergeConfig fills runtime values from the YAML config wherever the
+// user did NOT pass an explicit command-line flag. Env-var defaults
+// (set on the flag in main()) win over YAML for that reason: an env
+// already pre-fills the flag value, which is treated as "not at zero".
+//
+// Booleans are special: only override if the YAML actually carried a
+// value (Insecure is *bool to detect that).
+func mergeConfig(yc *config.Config, explicit map[string]bool,
+	url, user, pass, host *string, insecure *bool,
+	bases, backupCIDRs, listen *string, perfWorkers *int,
+	svcName, svcDisplay, svcDesc *string,
+) {
+	override := func(name string, target *string, yamlVal string) {
+		if !explicit[name] && yamlVal != "" {
+			*target = yamlVal
+		}
+	}
+	override("url", url, yc.URL)
+	override("user", user, yc.User)
+	override("pass", pass, yc.Pass)
+	override("host", host, yc.Host)
+	override("listen", listen, yc.Listen)
+	override("svc-name", svcName, yc.SvcName)
+	override("svc-display", svcDisplay, yc.SvcDisplay)
+	override("svc-description", svcDesc, yc.SvcDescription)
+	if !explicit["insecure"] && yc.Insecure != nil {
+		*insecure = *yc.Insecure
+	}
+	if !explicit["bases"] && len(yc.Bases) > 0 {
+		*bases = strings.Join(yc.Bases, ",")
+	}
+	if !explicit["backup-cidrs"] && len(yc.BackupCIDRs) > 0 {
+		*backupCIDRs = strings.Join(yc.BackupCIDRs, ",")
+	}
+	if !explicit["perf-workers"] && yc.PerfWorkers > 0 {
+		*perfWorkers = yc.PerfWorkers
+	}
+}
+
 // installService computes the absolute path of the running binary and
 // the arg list to bake into the SCM, then delegates to svc.Install.
 //
 // Args are taken from the flags the user explicitly set (flag.Visit),
 // minus the service-management ones — so on every service start the
 // binary is invoked with the same -url / -user / -pass / -listen / etc.
-// the operator picked at install time.
+// the operator picked at install time. With -config, the operator
+// typically only sets -config + -listen, keeping creds in the YAML
+// file rather than in the SCM ImagePath.
 func installService(cfg svc.Config) error {
 	exe, err := os.Executable()
 	if err != nil {

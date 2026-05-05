@@ -156,8 +156,25 @@ file to deploy.
 Trade-off: ImagePath is readable by any user with
 `SeQueryServiceConfigPrivilege` (and shown by `sc qc`). Anything
 sensitive (notably `-pass`) is therefore exposed to local admins. The
-install command prints a warning, and a future YAML-config option will
-let operators move credentials to a file with restricted ACLs.
+install command prints a warning when `-pass` was used without
+`-config`, and the YAML config (below) is the recommended way to keep
+credentials out of `sc qc`.
+
+### YAML config with strict precedence and unknown-field rejection
+Decision: a `-config <path>` flag loads a YAML file whose schema lives
+in `internal/config`. Values fall through this precedence order:
+explicit command-line flag > matching env var (which acts as the
+flag's default) > YAML > built-in default. Unknown YAML keys fail the
+load (`yaml.Decoder.KnownFields(true)`).
+Rationale: lets operators put credentials in an ACL'ed file (out of
+`sc qc`) while still allowing per-environment flag overrides at
+runtime. Strict unknown-field handling catches typos that would
+otherwise silently leave a setting at its default.
+Trade-off: env-var-set flag values are treated as "explicit" by the
+merge (since they pre-populate the flag default), so YAML cannot
+override them. Acceptable: the user controls precedence by deciding
+where to put each value. Booleans need a `*bool` in the YAML schema
+to distinguish "absent" from "false".
 
 ## What to watch out for
 - The `ServerHost` HTTP header is mandatory on every REST call. Without

@@ -1,0 +1,52 @@
+# ssv-prom-exporter — example configuration.
+#
+# Copy this file (e.g. to /etc/ssv-prom-exporter.yaml on Linux or
+# C:\ProgramData\ssv-prom-exporter\config.yaml on Windows) and tighten
+# permissions before storing real credentials:
+#
+#   chmod 600 /etc/ssv-prom-exporter.yaml          # Linux / WSL
+#   icacls C:\ProgramData\ssv-prom-exporter\config.yaml /inheritance:r /grant:r SYSTEM:F Administrators:F
+#
+# Pass -config <path> to the binary. Explicit command-line flags or
+# matching env vars override values from this file; missing fields fall
+# through to the binary's defaults.
+
+# --- Connection -------------------------------------------------------------
+
+url: https://10.0.0.1
+user: administrator
+pass: replace-me
+
+# Override the ServerHost header. Defaults to the host part of `url`.
+# host: 10.0.0.1
+
+# Skip TLS verification (default true; SSV ships self-signed certs).
+# insecure: true
+
+# --- Failover ---------------------------------------------------------------
+
+# Backup management IPs to try if the primary in `url` is unreachable.
+# Discovered IPs from /servers replace this list on every successful
+# inventory scrape, so this is mostly useful as a cold-start seed.
+# bases:
+#   - 10.0.0.2
+#   - 10.0.0.3
+
+# CIDR allowlist for discovered backup IPs. Default = primary's /24 if
+# `url` is an IPv4. Use 0.0.0.0/0 to disable filtering entirely.
+# backup_cidrs:
+#   - 10.0.0.0/24
+
+# --- HTTP server ------------------------------------------------------------
+
+listen: ":9876"
+
+# Concurrent /performance/{id} calls per scrape (default 8).
+# perf_workers: 8
+
+# --- Windows service metadata ----------------------------------------------
+
+# These only matter when -install is used.
+# svc_name: ssv-prom-exporter
+# svc_display: DataCore SANsymphony Prometheus Exporter
+# svc_description: Exposes DataCore SANsymphony metrics for Prometheus.
