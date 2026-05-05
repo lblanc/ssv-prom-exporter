@@ -1,34 +1,31 @@
-// Package collectors holds the prometheus.Collector implementations.
+// Package collectors holds the SSV-specific Prometheus collectors.
 //
-// The inventory collector fetches SSV's /serverGroups, /servers, /pools and
-// /virtualDisks list endpoints synchronously on every scrape and emits a
-// flat set of gauges. State integers from the API are exposed as-is — the
-// vendor enum mapping (e.g. "1 means online") is not documented in the
-// REST help and is left to dashboard authors.
+// Each collector implements the Child interface defined in scrape.go;
+// the Scrape wrapper is what actually registers with prometheus.Registry.
+//
+// State integers from the SSV API are exposed as-is — the vendor enum
+// mapping is not documented in the REST help and is left to dashboard
+// authors.
 package collectors
 
 import (
 	"context"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/lblanc/ssv-prom-exporter/internal/ssv"
 )
 
-const namespace = "ssv"
-
-// Inventory implements prometheus.Collector.
+// Inventory fetches /serverGroups, /servers, /pools and /virtualDisks
+// list endpoints synchronously on every scrape and emits a flat set of
+// gauges describing topology and capacity.
 type Inventory struct {
 	client *ssv.Client
 	log    *slog.Logger
 
 	mu sync.Mutex // serialises scrapes against the same mgmt server
-
-	up             *prometheus.Desc
-	scrapeDuration *prometheus.Desc
 
 	groupState       *prometheus.Desc
 	groupStorageUsed *prometheus.Desc
@@ -71,9 +68,6 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 		client: client,
 		log:    log,
 
-		up:             desc("up", "1 if the last SSV scrape succeeded, 0 otherwise.", nil),
-		scrapeDuration: desc("scrape_duration_seconds", "Duration of the last SSV scrape, per collector.", []string{"collector"}),
-
 		groupState:       desc("server_group_state", "Server group state (numeric, vendor-defined).", groupLabels),
 		groupStorageUsed: desc("server_group_storage_used_bytes", "Storage used at the server-group scope.", groupLabels),
 		groupStorageMax:  desc("server_group_storage_max_bytes", "Maximum storage allowed by the server-group license.", groupLabels),
@@ -103,13 +97,9 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 	}
 }
 
-func desc(name, help string, labels []string) *prometheus.Desc {
-	return prometheus.NewDesc(namespace+"_"+name, help, labels, nil)
-}
+func (c *Inventory) Name() string { return "inventory" }
 
 func (c *Inventory) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.up
-	ch <- c.scrapeDuration
 	ch <- c.groupState
 	ch <- c.groupStorageUsed
 	ch <- c.groupStorageMax
@@ -135,28 +125,22 @@ func (c *Inventory) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vdiskOffline
 }
 
-func (c *Inventory) Collect(ch chan<- prometheus.Metric) {
+func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Metric) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	groups, gerr := c.client.ServerGroups(ctx)
 	servers, serr := c.client.Servers(ctx)
 	pools, perr := c.client.Pools(ctx)
 	vdisks, verr := c.client.VirtualDisks(ctx)
 
-	ok := 1.0
+	ok := true
 	for _, e := range []error{gerr, serr, perr, verr} {
 		if e != nil {
 			c.log.Error("ssv inventory scrape error", "err", e)
-			ok = 0
+			ok = false
 		}
 	}
-	ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, ok)
-	ch <- prometheus.MustNewConstMetric(c.scrapeDuration, prometheus.GaugeValue, time.Since(start).Seconds(), "inventory")
 
 	for _, g := range groups {
 		labels := []string{g.ID, g.Caption}
@@ -198,11 +182,6 @@ func (c *Inventory) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.vdiskType, prometheus.GaugeValue, float64(v.Type), labels...)
 		ch <- prometheus.MustNewConstMetric(c.vdiskOffline, prometheus.GaugeValue, btof(v.Offline), labels...)
 	}
-}
 
-func btof(b bool) float64 {
-	if b {
-		return 1
-	}
-	return 0
+	return ok
 }

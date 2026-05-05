@@ -46,12 +46,11 @@ SSV_URL=https://10.12.110.11 SSV_USER=administrator SSV_PASS=*** \
 ```
 
 ## Current focus
-Inventory collector live on `/metrics`. Next: health collector
-(`/monitors`, `/alerts`) then performance collector
-(`/performance/{id}` with a worker pool).
+Inventory + health collectors live on `/metrics` (314 series in the lab).
+Next: performance collector (`/performance/{id}` with a worker pool),
+then Windows service mode.
 
 ## Remaining tasks
-- [ ] internal/collectors/health: `ssv_monitor_state`, `ssv_alert_active`
 - [ ] internal/collectors/performance: parallel /performance/{id} fetch with
       worker pool, `*_bytes_total` / `*_operations_total` counters
 - [ ] internal/svc: Windows service mode (install / uninstall / run as service),
@@ -74,3 +73,9 @@ Inventory collector live on `/metrics`. Next: health collector
   exposing 25 `ssv_*` series (group / server / pool / vdisk), wired to
   `/metrics` via promhttp under a new `-listen` flag. Verified against
   the lab: `ssv_up=1`, scrape ~200ms, all labels populated.
+- 2026-05-05 — Health collector (`internal/collectors/health.go`)
+  exposing `ssv_monitor_state` (252 series in the lab) and
+  `ssv_alerts_total`. Refactored multi-collector wiring through a new
+  `Scrape` wrapper (`internal/collectors/scrape.go`) so `ssv_up` and
+  `ssv_scrape_duration_seconds` are emitted once, with a `collector`
+  label, by the wrapper rather than each child.

@@ -4,9 +4,9 @@ Prometheus exporter for [DataCore SANsymphony](https://www.datacore.com/products
 (SSV), packaged as a native Windows service.
 
 > **Status:** v0. The binary exposes a Prometheus `/metrics` endpoint
-> backed by an inventory collector (server groups, servers, pools,
-> virtual disks). Health and performance collectors come next; Windows
-> service mode is not wired yet.
+> backed by inventory and health collectors (server groups, servers,
+> pools, virtual disks, monitors, alerts). The performance collector
+> and Windows service mode come next.
 
 ## What it will expose
 
@@ -58,7 +58,8 @@ SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
 Then `curl http://127.0.0.1:9876/metrics`. The current series include
 (non-exhaustive):
 
-- `ssv_up`, `ssv_scrape_duration_seconds{collector="inventory"}`
+- `ssv_up{collector="inventory"|"health"}`,
+  `ssv_scrape_duration_seconds{collector="..."}`
 - `ssv_server_group_{state,storage_used_bytes,storage_max_bytes,
   out_of_compliance,license_expires_seconds}`
 - `ssv_server_{state,support_state,power_state,cache_state,
@@ -66,6 +67,8 @@ Then `curl http://127.0.0.1:9876/metrics`. The current series include
   memory_total_bytes,memory_available_bytes,info}`
 - `ssv_pool_{status,presence_status,type,chunk_size_bytes}`
 - `ssv_virtual_disk_{status,size_bytes,type,offline}`
+- `ssv_monitor_state{monitor_id,template,target_id,caption}`
+- `ssv_alerts_total`
 
 State integers are exposed as-is — the SSV vendor enum mapping is not
 documented in the REST help.
@@ -82,7 +85,7 @@ SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
 - [x] Typed REST client (`internal/ssv`) with Basic auth, mandatory
       `ServerHost` header, and `.NET /Date(...)/` parsing.
 - [x] Inventory collector + HTTP server (`/metrics` via `promhttp`).
-- [ ] Health collector (`ssv_monitor_state`, `ssv_alert_active`).
+- [x] Health collector (`ssv_monitor_state`, `ssv_alerts_total`).
 - [ ] Performance collector — parallel `/performance/{id}` calls behind
       a bounded worker pool, exposing `*_bytes_total` /
       `*_operations_total` counters.

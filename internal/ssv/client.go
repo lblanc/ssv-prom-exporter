@@ -124,3 +124,19 @@ func (c *Client) VirtualDisks(ctx context.Context) ([]VirtualDisk, error) {
 	var v []VirtualDisk
 	return v, c.Get(ctx, "virtualDisks", &v)
 }
+
+func (c *Client) Monitors(ctx context.Context) ([]Monitor, error) {
+	var v []Monitor
+	return v, c.Get(ctx, "monitors", &v)
+}
+
+// AlertsCount returns the number of items in /alerts. The alert payload
+// shape is not yet modelled because the lab consistently returns []; the
+// count alone is enough to drive an alert on "alerts > 0".
+func (c *Client) AlertsCount(ctx context.Context) (int, error) {
+	var v []json.RawMessage
+	if err := c.Get(ctx, "alerts", &v); err != nil {
+		return 0, err
+	}
+	return len(v), nil
+}

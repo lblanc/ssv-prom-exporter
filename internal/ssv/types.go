@@ -68,3 +68,22 @@ type VirtualDisk struct {
 	Disabled   bool   `json:"Disabled"`
 	IsServed   bool   `json:"IsServed"`
 }
+
+// Monitor is the subset of /monitors fields surfaced as metrics.
+//
+// State is vendor-defined; in the PSP 20 lab we observe values 1, 2 and 4
+// (the latter being the threshold-warning monitors). The mapping is not
+// documented in the REST help, so callers should expose State as-is.
+type Monitor struct {
+	ID              string `json:"Id"`
+	TemplateID      string `json:"TemplateId"`
+	MonitoredObject string `json:"MonitoredObjectId"`
+	State           int    `json:"State"`
+	Caption         string `json:"Caption"`
+	ExtendedCaption string `json:"ExtendedCaption"`
+	Description     string `json:"Description"`
+	MessageText     string `json:"MessageText"`
+	TimeStamp       Time   `json:"TimeStamp"`
+	Internal        bool   `json:"Internal"`
+	SequenceNumber  int64  `json:"SequenceNumber"`
+}

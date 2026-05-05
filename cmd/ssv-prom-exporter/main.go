@@ -73,7 +73,10 @@ func main() {
 	}
 
 	reg := prometheus.NewRegistry()
-	reg.MustRegister(collectors.NewInventory(client, log))
+	reg.MustRegister(collectors.NewScrape(log, 30*time.Second,
+		collectors.NewInventory(client, log),
+		collectors.NewHealth(client, log),
+	))
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
