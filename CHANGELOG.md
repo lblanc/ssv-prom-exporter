@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.3] - 2026-05-06
+
+### Added
+- `ssv_server_info` now also carries `product_name` (the full SKU /
+  edition string from SSV's REST `/servers`). Useful for inventory
+  panels that want to show the product alongside its version.
+
+### Notes
+- This release is the binary backing the Grafana "Server versions"
+  table that ships with the test stack under `deploy/`.
+
+[v0.1.3]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.1.3
+
 ## [v0.1.2] - 2026-05-06
 
 Initial public release.

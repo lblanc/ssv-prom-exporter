@@ -1,12 +1,16 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "graphTooltip": 1,
   "links": [
     {
       "type": "dashboards",
       "title": "SSV",
-      "tags": ["ssv"],
+      "tags": [
+        "ssv"
+      ],
       "asDropdown": true,
       "icon": "external link",
       "includeVars": true,
@@ -17,25 +21,161 @@
   "panels": [
     {
       "type": "row",
+      "id": 50,
+      "title": "Inventory",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "type": "table",
+      "id": 51,
+      "title": "Server versions",
+      "description": "Pulled from ssv_server_info labels (ProductName / ProductVersion / ProductBuild / OsVersion).",
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_server_info{server=~\"$server\",group=~\"$group\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "group",
+                "server",
+                "host_name",
+                "product_name",
+                "product_version",
+                "product_build",
+                "os_version"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "group": "Group",
+              "server": "Server",
+              "host_name": "Hostname",
+              "product_name": "Product",
+              "product_version": "Version",
+              "product_build": "Build",
+              "os_version": "OS"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        }
+      }
+    },
+    {
+      "type": "row",
       "id": 1,
       "title": "Server: $server",
       "collapsed": false,
       "repeat": "server",
       "repeatDirection": "v",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      }
     },
     {
       "type": "stat",
       "id": 10,
       "title": "State",
-      "gridPos": {"h": 4, "w": 3, "x": 0, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_server_state{server=~\"$server\"}"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_server_state{server=~\"$server\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [{"type": "value", "options": {"0": {"text": "Unknown", "color": "orange", "index": 0}, "1": {"text": "Offline", "color": "red", "index": 1}, "2": {"text": "Online", "color": "green", "index": 2}}}],
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 2}]}
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Unknown",
+                  "color": "orange",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Offline",
+                  "color": "red",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Online",
+                  "color": "green",
+                  "index": 2
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
+          }
         }
       }
     },
@@ -43,13 +183,57 @@
       "type": "stat",
       "id": 11,
       "title": "Cache",
-      "gridPos": {"h": 4, "w": 3, "x": 3, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_server_cache_state{server=~\"$server\"}"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_server_cache_state{server=~\"$server\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [{"type": "value", "options": {"0": {"text": "Unknown", "color": "orange", "index": 0}, "1": {"text": "Disabled", "color": "red", "index": 1}, "2": {"text": "Enabled", "color": "green", "index": 2}}}]
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Unknown",
+                  "color": "orange",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Disabled",
+                  "color": "red",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Enabled",
+                  "color": "green",
+                  "index": 2
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -57,13 +241,62 @@
       "type": "stat",
       "id": 12,
       "title": "Power",
-      "gridPos": {"h": 4, "w": 3, "x": 6, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_server_power_state{server=~\"$server\"}"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_server_power_state{server=~\"$server\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [{"type": "value", "options": {"0": {"text": "Unknown", "color": "orange", "index": 0}, "1": {"text": "Loss of AC", "color": "red", "index": 1}, "2": {"text": "AC OK", "color": "green", "index": 2}, "3": {"text": "Low battery", "color": "orange", "index": 3}}}]
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Unknown",
+                  "color": "orange",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Loss of AC",
+                  "color": "red",
+                  "index": 1
+                },
+                "2": {
+                  "text": "AC OK",
+                  "color": "green",
+                  "index": 2
+                },
+                "3": {
+                  "text": "Low battery",
+                  "color": "orange",
+                  "index": 3
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -72,16 +305,54 @@
       "id": 13,
       "title": "Cache used",
       "description": "1 - free/total",
-      "gridPos": {"h": 4, "w": 4, "x": 9, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * (1 - ssv_server_cache_free_bytes{server=~\"$server\"} / ssv_server_cache_size_bytes{server=~\"$server\"})"}],
-      "options": {"orientation": "auto", "showThresholdLabels": false, "showThresholdMarkers": true, "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 9,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - ssv_server_cache_free_bytes{server=~\"$server\",group=~\"$group\"} / ssv_server_cache_size_bytes{server=~\"$server\",group=~\"$group\"})"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 80}, {"color": "red", "value": 95}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
         }
       }
     },
@@ -89,26 +360,91 @@
       "type": "stat",
       "id": 14,
       "title": "Cache size",
-      "gridPos": {"h": 4, "w": 3, "x": 13, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_server_cache_size_bytes{server=~\"$server\"}"}],
-      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1}}
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 13,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_server_cache_size_bytes{server=~\"$server\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1
+        }
+      }
     },
     {
       "type": "stat",
       "id": 15,
       "title": "Read cache hit ratio",
       "description": "hits / (hits + misses) over the last 5 minutes.",
-      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * rate(ssv_server_cache_read_hits_total{server=~\"$server\"}[5m]) / clamp_min(rate(ssv_server_cache_read_hits_total{server=~\"$server\"}[5m]) + rate(ssv_server_cache_read_misses_total{server=~\"$server\"}[5m]), 1)"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * rate(ssv_server_cache_read_hits_total{server=~\"$server\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_server_cache_read_hits_total{server=~\"$server\",group=~\"$group\"}[5m]) + rate(ssv_server_cache_read_misses_total{server=~\"$server\",group=~\"$group\"}[5m]), 1)"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 50}, {"color": "green", "value": 80}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
         }
       }
     },
@@ -116,15 +452,53 @@
       "type": "stat",
       "id": 16,
       "title": "Write cache hit ratio",
-      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * rate(ssv_server_cache_write_hits_total{server=~\"$server\"}[5m]) / clamp_min(rate(ssv_server_cache_write_hits_total{server=~\"$server\"}[5m]) + rate(ssv_server_cache_write_misses_total{server=~\"$server\"}[5m]), 1)"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * rate(ssv_server_cache_write_hits_total{server=~\"$server\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_server_cache_write_hits_total{server=~\"$server\",group=~\"$group\"}[5m]) + rate(ssv_server_cache_write_misses_total{server=~\"$server\",group=~\"$group\"}[5m]), 1)"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 50}, {"color": "green", "value": 80}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
         }
       }
     },
@@ -132,23 +506,105 @@
       "type": "timeseries",
       "id": 20,
       "title": "IOPS (read/write)",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_server_read_ops_total{server=~\"$server\"}[5m])", "legendFormat": "read"},
-        {"refId": "W", "expr": "rate(ssv_server_write_ops_total{server=~\"$server\"}[5m])", "legendFormat": "write"},
-        {"refId": "T", "expr": "rate(ssv_server_read_ops_total{server=~\"$server\"}[5m]) + rate(ssv_server_write_ops_total{server=~\"$server\"}[5m])", "legendFormat": "total"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_server_read_ops_total{server=~\"$server\",group=~\"$group\"}[5m])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_server_write_ops_total{server=~\"$server\",group=~\"$group\"}[5m])",
+          "legendFormat": "write"
+        },
+        {
+          "refId": "T",
+          "expr": "rate(ssv_server_read_ops_total{server=~\"$server\",group=~\"$group\"}[5m]) + rate(ssv_server_write_ops_total{server=~\"$server\",group=~\"$group\"}[5m])",
+          "legendFormat": "total"
+        }
       ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
-        "defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}},
+        "defaults": {
+          "unit": "iops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "read"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#56A64B"}}]},
-          {"matcher": {"id": "byName", "options": "write"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#E02F44"}}]},
-          {"matcher": {"id": "byName", "options": "total"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#3274D9"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56A64B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E02F44"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274D9"
+                }
+              }
+            ]
+          }
         ]
       }
     },
@@ -156,21 +612,85 @@
       "type": "timeseries",
       "id": 21,
       "title": "Throughput (read/write)",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_server_read_bytes_total{server=~\"$server\"}[5m])", "legendFormat": "read"},
-        {"refId": "W", "expr": "rate(ssv_server_write_bytes_total{server=~\"$server\"}[5m])", "legendFormat": "write"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_server_read_bytes_total{server=~\"$server\",group=~\"$group\"}[5m])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_server_write_bytes_total{server=~\"$server\",group=~\"$group\"}[5m])",
+          "legendFormat": "write"
+        }
       ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
-        "defaults": {"unit": "binBps", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}},
+        "defaults": {
+          "unit": "binBps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "read"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#56A64B"}}]},
-          {"matcher": {"id": "byName", "options": "write"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#E02F44"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56A64B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E02F44"
+                }
+              }
+            ]
+          }
         ]
       }
     },
@@ -179,15 +699,49 @@
       "id": 22,
       "title": "IOPS by pipeline class",
       "description": "Operations/s broken down by IO class: front_end_target / mirror_target / physical_disk / pool / target.",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "rate(ssv_server_class_io_operations_total{server=~\"$server\"}[5m])", "legendFormat": "{{class}}"}],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(ssv_server_class_io_operations_total{server=~\"$server\",group=~\"$group\"}[5m])",
+          "legendFormat": "{{class}}"
+        }
+      ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
-        "defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}
+        "defaults": {
+          "unit": "iops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        }
       }
     },
     {
@@ -195,47 +749,147 @@
       "id": 23,
       "title": "Avg latency by pipeline class",
       "description": "rate(time)/rate(ops) per class. Thresholds at 5 ms (warn) and 8 ms (critical).",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "rate(ssv_server_class_io_time_seconds_total{server=~\"$server\"}[5m]) / clamp_min(rate(ssv_server_class_io_operations_total{server=~\"$server\"}[5m]), 1)", "legendFormat": "{{class}}"}],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(ssv_server_class_io_time_seconds_total{server=~\"$server\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_server_class_io_operations_total{server=~\"$server\",group=~\"$group\"}[5m]), 1)",
+          "legendFormat": "{{class}}"
+        }
+      ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 4,
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.008
+              }
+            ]
+          }
         }
       }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["ssv", "datacore", "servers"],
+  "tags": [
+    "ssv",
+    "datacore",
+    "servers"
+  ],
   "templating": {
     "list": [
       {
-        "name": "server",
-        "label": "Server",
+        "name": "group",
+        "label": "Group",
         "type": "query",
-        "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "definition": "label_values(ssv_server_state, server)",
-        "query": {"qryType": 1, "query": "label_values(ssv_server_state, server)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(ssv_up, group)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ssv_up, group)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "sort": 1,
         "multi": true,
         "includeAll": true,
         "allValue": ".+",
-        "current": {"text": "All", "value": "$__all"}
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "server",
+        "label": "Server",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(ssv_server_state{group=~\"$group\"}, server)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ssv_server_state{group=~\"$group\"}, server)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": {"from": "now-1h", "to": "now"},
-  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]},
-  "title": "SSV — Servers",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ]
+  },
+  "title": "SSV \u2014 Servers",
   "uid": "ssv-servers",
   "version": 1
 }

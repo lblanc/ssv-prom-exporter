@@ -228,8 +228,18 @@ Grafana 12 with three dashboards pre-provisioned.
 ```sh
 cd deploy
 cp .env.example .env
-$EDITOR .env          # set EXPORTER_TARGET to <windows-host>:9876
+$EDITOR .env          # set EXPORTER_TARGETS, see below
 docker compose up -d
+```
+
+Targets are declared in `EXPORTER_TARGETS` as
+`name1=host:port,name2=host:port` — one entry per SANsymphony group.
+The name becomes the `group` Prometheus label; every dashboard panel
+filters on it via the `Group` template variable, so several SAN
+groups can sit side by side in the same Grafana.
+
+```sh
+EXPORTER_TARGETS=lab=10.12.110.11:9876,prod=10.0.0.5:9876
 ```
 
 Then:

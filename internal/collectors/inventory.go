@@ -80,7 +80,7 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 		serverCache:    desc("server_cache_state", "Server cache state (numeric, vendor-defined).", serverLabels),
 		serverDiag:     desc("server_diagnostic_mode", "Server diagnostic mode (numeric, vendor-defined).", serverLabels),
 		serverMaint:    desc("server_maintenance_mode", "1 if the server is in maintenance mode.", serverLabels),
-		serverInfo:     desc("server_info", "Static server information (always 1).", []string{"server_id", "server", "host_name", "product_version", "product_build", "os_version"}),
+		serverInfo:     desc("server_info", "Static server information (always 1).", []string{"server_id", "server", "host_name", "product_name", "product_version", "product_build", "os_version"}),
 		serverStorage:  desc("server_storage_used_bytes", "Storage used by this server.", serverLabels),
 		serverMemTotal: desc("server_memory_total_bytes", "Total system memory on the server.", serverLabels),
 		serverMemAvail: desc("server_memory_available_bytes", "Available system memory on the server.", serverLabels),
@@ -175,7 +175,7 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		ch <- prometheus.MustNewConstMetric(c.serverStorage, prometheus.GaugeValue, float64(s.StorageUsed.Value), labels...)
 		ch <- prometheus.MustNewConstMetric(c.serverMemTotal, prometheus.GaugeValue, float64(s.TotalSystemMemory.Value), labels...)
 		ch <- prometheus.MustNewConstMetric(c.serverMemAvail, prometheus.GaugeValue, float64(s.AvailableSystemMemory.Value), labels...)
-		ch <- prometheus.MustNewConstMetric(c.serverInfo, prometheus.GaugeValue, 1, s.ID, s.Caption, s.HostName, s.ProductVersion, s.ProductBuild, s.OsVersion)
+		ch <- prometheus.MustNewConstMetric(c.serverInfo, prometheus.GaugeValue, 1, s.ID, s.Caption, s.HostName, s.ProductName, s.ProductVersion, s.ProductBuild, s.OsVersion)
 	}
 
 	for _, p := range pools {

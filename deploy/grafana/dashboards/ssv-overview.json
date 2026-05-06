@@ -1,5 +1,7 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -7,7 +9,9 @@
     {
       "type": "dashboards",
       "title": "SSV",
-      "tags": ["ssv"],
+      "tags": [
+        "ssv"
+      ],
       "asDropdown": true,
       "icon": "external link",
       "includeVars": true,
@@ -22,7 +26,12 @@
       "id": 100,
       "title": "Health",
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "panels": []
     },
     {
@@ -30,14 +39,68 @@
       "id": 1,
       "title": "Scrape OK",
       "description": "1 if every collector (inventory, health, performance) succeeded on its last scrape.",
-      "gridPos": {"h": 4, "w": 3, "x": 0, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "min(ssv_up)", "legendFormat": "scrape OK"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(ssv_up{group=~\"$group\"})",
+          "legendFormat": "scrape OK"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red", "index": 0}, "1": {"text": "OK", "color": "green", "index": 1}}}],
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "text": "OK",
+                  "color": "green",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -46,13 +109,52 @@
       "id": 2,
       "title": "Active Alerts",
       "description": "Sum of items in SSV's /alerts endpoint.",
-      "gridPos": {"h": 4, "w": 3, "x": 3, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum(ssv_alerts_total)"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(ssv_alerts_total{group=~\"$group\"})"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}, {"color": "red", "value": 5}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
         }
       }
     },
@@ -61,16 +163,54 @@
       "id": 3,
       "title": "Servers Online",
       "description": "Number of servers reporting state == 2 (Online).",
-      "gridPos": {"h": 4, "w": 3, "x": 6, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "A", "expr": "sum(ssv_server_state == 2)", "legendFormat": "online"},
-        {"refId": "B", "expr": "count(ssv_server_state)", "legendFormat": "total"}
+        {
+          "refId": "A",
+          "expr": "sum(ssv_server_state{group=~\"$group\"} == 2)",
+          "legendFormat": "online"
+        },
+        {
+          "refId": "B",
+          "expr": "count(ssv_server_state{group=~\"$group\"})",
+          "legendFormat": "total"
+        }
       ],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value_and_name", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -79,15 +219,54 @@
       "id": 4,
       "title": "License Expiry",
       "description": "Days until the soonest server-group license expiry.",
-      "gridPos": {"h": 4, "w": 3, "x": 9, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "min(ssv_server_group_license_expires_seconds - time()) / 86400"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min(ssv_server_group_license_expires_seconds{group=~\"$group\"} - time()) / 86400"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "d",
           "decimals": 0,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 30}, {"color": "green", "value": 90}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          }
         }
       }
     },
@@ -96,12 +275,42 @@
       "id": 5,
       "title": "Total IOPS",
       "description": "Sum of read+write ops/s across all servers.",
-      "gridPos": {"h": 4, "w": 3, "x": 12, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum(rate(ssv_server_read_ops_total[5m])) + sum(rate(ssv_server_write_ops_total[5m]))"}],
-      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ssv_server_read_ops_total{group=~\"$group\"}[5m])) + sum(rate(ssv_server_write_ops_total{group=~\"$group\"}[5m]))"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
-        "defaults": {"unit": "iops", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}
+        "defaults": {
+          "unit": "iops",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        }
       }
     },
     {
@@ -109,12 +318,42 @@
       "id": 6,
       "title": "Throughput",
       "description": "Sum of read+write throughput across all servers.",
-      "gridPos": {"h": 4, "w": 3, "x": 15, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "sum(rate(ssv_server_read_bytes_total[5m])) + sum(rate(ssv_server_write_bytes_total[5m]))"}],
-      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 15,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ssv_server_read_bytes_total{group=~\"$group\"}[5m])) + sum(rate(ssv_server_write_bytes_total{group=~\"$group\"}[5m]))"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
-        "defaults": {"unit": "binBps", "decimals": 1, "color": {"mode": "fixed", "fixedColor": "purple"}}
+        "defaults": {
+          "unit": "binBps",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        }
       }
     },
     {
@@ -122,15 +361,54 @@
       "id": 7,
       "title": "Avg Pool Latency",
       "description": "rate(time) / rate(ops) across all pools.",
-      "gridPos": {"h": 4, "w": 3, "x": 18, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "(sum(rate(ssv_pool_io_time_seconds_total[5m]))) / (sum(rate(ssv_pool_read_ops_total[5m])) + sum(rate(ssv_pool_write_ops_total[5m])))"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(ssv_pool_io_time_seconds_total{group=~\"$group\"}[5m]))) / (sum(rate(ssv_pool_read_ops_total{group=~\"$group\"}[5m])) + sum(rate(ssv_pool_write_ops_total{group=~\"$group\"}[5m])))"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 2,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.008
+              }
+            ]
+          }
         }
       }
     },
@@ -139,15 +417,54 @@
       "id": 8,
       "title": "Capacity Used",
       "description": "Aggregate pool fill ratio.",
-      "gridPos": {"h": 4, "w": 3, "x": 21, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * sum(ssv_pool_used_bytes) / sum(ssv_pool_capacity_bytes)"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(ssv_pool_used_bytes{group=~\"$group\"}) / sum(ssv_pool_capacity_bytes{group=~\"$group\"})"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 70}, {"color": "red", "value": 85}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
         }
       }
     },
@@ -156,37 +473,130 @@
       "id": 200,
       "title": "Status",
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "panels": []
     },
     {
       "type": "table",
       "id": 10,
       "title": "Servers",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "STATE", "expr": "ssv_server_state", "format": "table", "instant": true},
-        {"refId": "IOPS", "expr": "rate(ssv_server_read_ops_total[5m]) + rate(ssv_server_write_ops_total[5m])", "format": "table", "instant": true}
+        {
+          "refId": "STATE",
+          "expr": "ssv_server_state{group=~\"$group\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "IOPS",
+          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_server_write_ops_total{group=~\"$group\"}[5m])",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
-        {"id": "filterFieldsByName", "options": {"include": {"names": ["server", "Value #STATE", "Value #IOPS"]}}},
-        {"id": "merge"},
-        {"id": "organize", "options": {"renameByName": {"server": "Server", "Value #STATE": "State", "Value #IOPS": "IOPS"}}}
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "server",
+                "Value #STATE",
+                "Value #IOPS"
+              ]
+            }
+          }
+        },
+        {
+          "id": "merge"
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "server": "Server",
+              "Value #STATE": "State",
+              "Value #IOPS": "IOPS"
+            }
+          }
+        }
       ],
       "fieldConfig": {
-        "defaults": {"custom": {"align": "auto"}},
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "State"},
+            "matcher": {
+              "id": "byName",
+              "options": "State"
+            },
             "properties": [
-              {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "Unknown", "color": "orange", "index": 0}, "1": {"text": "Offline", "color": "red", "index": 1}, "2": {"text": "Online", "color": "green", "index": 2}}}]},
-              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Unknown",
+                        "color": "orange",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "Offline",
+                        "color": "red",
+                        "index": 1
+                      },
+                      "2": {
+                        "text": "Online",
+                        "color": "green",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "IOPS"},
-            "properties": [{"id": "unit", "value": "iops"}, {"id": "decimals", "value": 0}]
+            "matcher": {
+              "id": "byName",
+              "options": "IOPS"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "iops"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
           }
         ]
       }
@@ -195,32 +605,197 @@
       "type": "table",
       "id": 11,
       "title": "Pools",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "STATUS", "expr": "ssv_pool_status", "format": "table", "instant": true},
-        {"refId": "CAP", "expr": "ssv_pool_capacity_bytes", "format": "table", "instant": true},
-        {"refId": "USED", "expr": "ssv_pool_used_bytes", "format": "table", "instant": true},
-        {"refId": "IOPS", "expr": "rate(ssv_pool_read_ops_total[5m]) + rate(ssv_pool_write_ops_total[5m])", "format": "table", "instant": true}
+        {
+          "refId": "STATUS",
+          "expr": "ssv_pool_status{group=~\"$group\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "CAP",
+          "expr": "ssv_pool_capacity_bytes{group=~\"$group\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "USED",
+          "expr": "ssv_pool_used_bytes{group=~\"$group\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "IOPS",
+          "expr": "rate(ssv_pool_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[5m])",
+          "format": "table",
+          "instant": true
+        }
       ],
       "transformations": [
-        {"id": "filterFieldsByName", "options": {"include": {"names": ["pool", "Value #STATUS", "Value #CAP", "Value #USED", "Value #IOPS"]}}},
-        {"id": "merge"},
-        {"id": "organize", "options": {"renameByName": {"pool": "Pool", "Value #STATUS": "Status", "Value #CAP": "Capacity", "Value #USED": "Used", "Value #IOPS": "IOPS"}}}
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "pool",
+                "Value #STATUS",
+                "Value #CAP",
+                "Value #USED",
+                "Value #IOPS"
+              ]
+            }
+          }
+        },
+        {
+          "id": "merge"
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "pool": "Pool",
+              "Value #STATUS": "Status",
+              "Value #CAP": "Capacity",
+              "Value #USED": "Used",
+              "Value #IOPS": "IOPS"
+            }
+          }
+        }
       ],
       "fieldConfig": {
-        "defaults": {"custom": {"align": "auto"}},
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Status"},
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
             "properties": [
-              {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "Running", "color": "green", "index": 0}, "1": {"text": "Initializing", "color": "yellow", "index": 1}, "4": {"text": "MissingDisks", "color": "red", "index": 2}, "5": {"text": "Foreign", "color": "orange", "index": 3}, "6": {"text": "Removing", "color": "orange", "index": 4}, "7": {"text": "Offline", "color": "red", "index": 5}, "8": {"text": "Unknown", "color": "orange", "index": 6}, "9": {"text": "FailedRedundancy", "color": "red", "index": 7}, "10": {"text": "Suspended", "color": "orange", "index": 8}}}]},
-              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "Running",
+                        "color": "green",
+                        "index": 0
+                      },
+                      "1": {
+                        "text": "Initializing",
+                        "color": "yellow",
+                        "index": 1
+                      },
+                      "4": {
+                        "text": "MissingDisks",
+                        "color": "red",
+                        "index": 2
+                      },
+                      "5": {
+                        "text": "Foreign",
+                        "color": "orange",
+                        "index": 3
+                      },
+                      "6": {
+                        "text": "Removing",
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "7": {
+                        "text": "Offline",
+                        "color": "red",
+                        "index": 5
+                      },
+                      "8": {
+                        "text": "Unknown",
+                        "color": "orange",
+                        "index": 6
+                      },
+                      "9": {
+                        "text": "FailedRedundancy",
+                        "color": "red",
+                        "index": 7
+                      },
+                      "10": {
+                        "text": "Suspended",
+                        "color": "orange",
+                        "index": 8
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
             ]
           },
-          {"matcher": {"id": "byName", "options": "Capacity"}, "properties": [{"id": "unit", "value": "bytes"}, {"id": "decimals", "value": 1}]},
-          {"matcher": {"id": "byName", "options": "Used"}, "properties": [{"id": "unit", "value": "bytes"}, {"id": "decimals", "value": 1}]},
-          {"matcher": {"id": "byName", "options": "IOPS"}, "properties": [{"id": "unit", "value": "iops"}, {"id": "decimals", "value": 0}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Capacity"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "bytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "IOPS"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "iops"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
         ]
       }
     },
@@ -229,27 +804,65 @@
       "id": 300,
       "title": "Workload",
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
       "panels": []
     },
     {
       "type": "timeseries",
       "id": 20,
       "title": "IOPS per server",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_server_read_ops_total[5m])", "legendFormat": "{{server}} read"},
-        {"refId": "W", "expr": "rate(ssv_server_write_ops_total[5m])", "legendFormat": "{{server}} write"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[5m])",
+          "legendFormat": "{{server}} read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_server_write_ops_total{group=~\"$group\"}[5m])",
+          "legendFormat": "{{server}} write"
+        }
       ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "iops",
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
         }
       }
     },
@@ -257,20 +870,53 @@
       "type": "timeseries",
       "id": 21,
       "title": "Throughput per server",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_server_read_bytes_total[5m])", "legendFormat": "{{server}} read"},
-        {"refId": "W", "expr": "rate(ssv_server_write_bytes_total[5m])", "legendFormat": "{{server}} write"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_server_read_bytes_total{group=~\"$group\"}[5m])",
+          "legendFormat": "{{server}} read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_server_write_bytes_total{group=~\"$group\"}[5m])",
+          "legendFormat": "{{server}} write"
+        }
       ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "binBps",
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
         }
       }
     },
@@ -279,21 +925,69 @@
       "id": 22,
       "title": "Pool latency (avg)",
       "description": "Cumulative time / cumulative ops per pool. Thresholds at 5 ms (warn) and 8 ms (critical).",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 23},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "A", "expr": "(rate(ssv_pool_read_time_seconds_total[5m]) + rate(ssv_pool_write_time_seconds_total[5m])) / clamp_min(rate(ssv_pool_read_ops_total[5m]) + rate(ssv_pool_write_ops_total[5m]), 1)", "legendFormat": "{{pool}}"}
+        {
+          "refId": "A",
+          "expr": "(rate(ssv_pool_read_time_seconds_total{group=~\"$group\"}[5m]) + rate(ssv_pool_write_time_seconds_total{group=~\"$group\"}[5m])) / clamp_min(rate(ssv_pool_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[5m]), 1)",
+          "legendFormat": "{{pool}}"
+        }
       ],
       "options": {
-        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 4,
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.008
+              }
+            ]
+          }
         }
       }
     },
@@ -301,16 +995,55 @@
       "type": "bargauge",
       "id": 23,
       "title": "Pool fill %",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 23},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * ssv_pool_used_bytes / ssv_pool_capacity_bytes", "legendFormat": "{{pool}}"}],
-      "options": {"orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * ssv_pool_used_bytes{group=~\"$group\"} / ssv_pool_capacity_bytes{group=~\"$group\"}",
+          "legendFormat": "{{pool}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 70}, {"color": "red", "value": 85}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          }
         }
       }
     },
@@ -319,45 +1052,165 @@
       "id": 400,
       "title": "Top noisy",
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 31}
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      }
     },
     {
       "type": "bargauge",
       "id": 30,
       "title": "Top virtual disks by IOPS",
-      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 32},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total[5m]) + rate(ssv_virtual_disk_write_ops_total[5m]))", "legendFormat": "{{vdisk}}"}],
-      "options": {"orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{group=~\"$group\"}[5m]))",
+          "legendFormat": "{{vdisk}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "iops",
-          "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": null}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
         }
       }
     },
     {
       "type": "table",
       "id": 31,
-      "title": "Active monitors (state ≠ 0)",
-      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 32},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_monitor_state != 0", "format": "table", "instant": true}],
-      "transformations": [
-        {"id": "filterFieldsByName", "options": {"include": {"names": ["template", "caption", "Value"]}}},
-        {"id": "organize", "options": {"renameByName": {"template": "Template", "caption": "Resource", "Value": "State"}}}
+      "title": "Active monitors (state \u2260 0)",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_monitor_state{group=~\"$group\"} != 0",
+          "format": "table",
+          "instant": true
+        }
       ],
-      "fieldConfig": {"defaults": {"custom": {"align": "auto"}}}
+      "transformations": [
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "names": [
+                "template",
+                "caption",
+                "Value"
+              ]
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "template": "Template",
+              "caption": "Resource",
+              "Value": "State"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        }
+      }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["ssv", "datacore", "overview"],
-  "templating": {"list": []},
-  "time": {"from": "now-1h", "to": "now"},
-  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]},
+  "tags": [
+    "ssv",
+    "datacore",
+    "overview"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "group",
+        "label": "Group",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(ssv_up, group)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ssv_up, group)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ]
+  },
   "timezone": "",
-  "title": "SSV — Overview",
+  "title": "SSV \u2014 Overview",
   "uid": "ssv-overview",
   "version": 1
 }

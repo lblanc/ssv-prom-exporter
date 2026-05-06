@@ -20,24 +20,22 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      # The mounted file is a template; the entrypoint below copies it
-      # to a writable location and substitutes __EXPORTER_TARGET__ before
-      # launching prometheus.
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.tpl:ro
+      # gen-config.sh emits /tmp/prometheus.yml at start from EXPORTER_TARGETS.
+      - ./prometheus/gen-config.sh:/usr/local/bin/gen-config.sh:ro
       - prometheus-data:/prometheus
     entrypoint:
       - /bin/sh
       - -c
       - |
-        sed "s|__EXPORTER_TARGET__|${EXPORTER_TARGET:-host.docker.internal:9876}|g" \
-            /etc/prometheus/prometheus.yml.tpl > /tmp/prometheus.yml
+        /usr/local/bin/gen-config.sh
         exec /bin/prometheus \
             --config.file=/tmp/prometheus.yml \
             --storage.tsdb.path=/prometheus \
             --storage.tsdb.retention.time=15d \
             --web.enable-lifecycle
     environment:
-      EXPORTER_TARGET: ${EXPORTER_TARGET:-host.docker.internal:9876}
+      EXPORTER_TARGETS: ${EXPORTER_TARGETS:-}
+      EXPORTER_TARGET: ${EXPORTER_TARGET:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

@@ -1,12 +1,16 @@
 {
-  "annotations": {"list": []},
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "graphTooltip": 1,
   "links": [
     {
       "type": "dashboards",
       "title": "SSV",
-      "tags": ["ssv"],
+      "tags": [
+        "ssv"
+      ],
       "asDropdown": true,
       "icon": "external link",
       "includeVars": true,
@@ -22,19 +26,98 @@
       "collapsed": false,
       "repeat": "pool",
       "repeatDirection": "v",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "type": "stat",
       "id": 10,
       "title": "Status",
-      "gridPos": {"h": 5, "w": 3, "x": 0, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_pool_status{pool=~\"$pool\"}"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_pool_status{pool=~\"$pool\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [{"type": "value", "options": {"0": {"text": "Running", "color": "green", "index": 0}, "1": {"text": "Initializing", "color": "yellow", "index": 1}, "4": {"text": "MissingDisks", "color": "red", "index": 2}, "5": {"text": "Foreign", "color": "orange", "index": 3}, "6": {"text": "Removing", "color": "orange", "index": 4}, "7": {"text": "Offline", "color": "red", "index": 5}, "8": {"text": "Unknown", "color": "orange", "index": 6}, "9": {"text": "FailedRedundancy", "color": "red", "index": 7}, "10": {"text": "Suspended", "color": "orange", "index": 8}}}]
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Running",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Initializing",
+                  "color": "yellow",
+                  "index": 1
+                },
+                "4": {
+                  "text": "MissingDisks",
+                  "color": "red",
+                  "index": 2
+                },
+                "5": {
+                  "text": "Foreign",
+                  "color": "orange",
+                  "index": 3
+                },
+                "6": {
+                  "text": "Removing",
+                  "color": "orange",
+                  "index": 4
+                },
+                "7": {
+                  "text": "Offline",
+                  "color": "red",
+                  "index": 5
+                },
+                "8": {
+                  "text": "Unknown",
+                  "color": "orange",
+                  "index": 6
+                },
+                "9": {
+                  "text": "FailedRedundancy",
+                  "color": "red",
+                  "index": 7
+                },
+                "10": {
+                  "text": "Suspended",
+                  "color": "orange",
+                  "index": 8
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -42,45 +125,160 @@
       "type": "stat",
       "id": 11,
       "title": "Capacity",
-      "gridPos": {"h": 5, "w": 3, "x": 3, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_pool_capacity_bytes{pool=~\"$pool\"}"}],
-      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1}}
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 3,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_pool_capacity_bytes{pool=~\"$pool\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1
+        }
+      }
     },
     {
       "type": "stat",
       "id": 12,
       "title": "Used",
-      "gridPos": {"h": 5, "w": 3, "x": 6, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_pool_used_bytes{pool=~\"$pool\"}"}],
-      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1}}
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_pool_used_bytes{pool=~\"$pool\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1
+        }
+      }
     },
     {
       "type": "stat",
       "id": 13,
       "title": "Free",
-      "gridPos": {"h": 5, "w": 3, "x": 9, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_pool_available_bytes{pool=~\"$pool\"}"}],
-      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1}}
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 9,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_pool_available_bytes{pool=~\"$pool\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1
+        }
+      }
     },
     {
       "type": "stat",
       "id": 14,
       "title": "Oversubscribed",
       "description": "Bytes oversubscribed (alarming if > 0).",
-      "gridPos": {"h": 5, "w": 3, "x": 12, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_pool_oversubscribed_bytes{pool=~\"$pool\"}"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 5,
+        "w": 3,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_pool_oversubscribed_bytes{pool=~\"$pool\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -88,28 +286,124 @@
       "type": "piechart",
       "id": 15,
       "title": "Allocation",
-      "gridPos": {"h": 5, "w": 9, "x": 15, "y": 1},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 5,
+        "w": 9,
+        "x": 15,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "U", "expr": "ssv_pool_used_bytes{pool=~\"$pool\"}", "legendFormat": "Used"},
-        {"refId": "F", "expr": "ssv_pool_available_bytes{pool=~\"$pool\"}", "legendFormat": "Free"},
-        {"refId": "RES", "expr": "ssv_pool_reserved_bytes{pool=~\"$pool\"}", "legendFormat": "Reserved"},
-        {"refId": "REC", "expr": "ssv_pool_reclamation_bytes{pool=~\"$pool\"}", "legendFormat": "In reclamation"}
+        {
+          "refId": "U",
+          "expr": "ssv_pool_used_bytes{pool=~\"$pool\",group=~\"$group\"}",
+          "legendFormat": "Used"
+        },
+        {
+          "refId": "F",
+          "expr": "ssv_pool_available_bytes{pool=~\"$pool\",group=~\"$group\"}",
+          "legendFormat": "Free"
+        },
+        {
+          "refId": "RES",
+          "expr": "ssv_pool_reserved_bytes{pool=~\"$pool\",group=~\"$group\"}",
+          "legendFormat": "Reserved"
+        },
+        {
+          "refId": "REC",
+          "expr": "ssv_pool_reclamation_bytes{pool=~\"$pool\",group=~\"$group\"}",
+          "legendFormat": "In reclamation"
+        }
       ],
       "options": {
         "pieType": "donut",
-        "displayLabels": ["percent"],
-        "legend": {"displayMode": "table", "placement": "right", "values": ["value"]},
-        "reduceOptions": {"calcs": ["lastNotNull"]},
-        "tooltip": {"mode": "single"}
+        "displayLabels": [
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "fieldConfig": {
-        "defaults": {"unit": "bytes"},
+        "defaults": {
+          "unit": "bytes"
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "Used"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#5794F2"}}]},
-          {"matcher": {"id": "byName", "options": "Free"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#73BF69"}}]},
-          {"matcher": {"id": "byName", "options": "Reserved"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#F2495C"}}]},
-          {"matcher": {"id": "byName", "options": "In reclamation"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#FADE2A"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Free"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Reserved"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "In reclamation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FADE2A"
+                }
+              }
+            ]
+          }
         ]
       }
     },
@@ -117,20 +411,105 @@
       "type": "timeseries",
       "id": 20,
       "title": "IOPS",
-      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 6},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\"}[5m])", "legendFormat": "read"},
-        {"refId": "W", "expr": "rate(ssv_pool_write_ops_total{pool=~\"$pool\"}[5m])", "legendFormat": "write"},
-        {"refId": "T", "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\"}[5m]) + rate(ssv_pool_write_ops_total{pool=~\"$pool\"}[5m])", "legendFormat": "total"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m])",
+          "legendFormat": "write"
+        },
+        {
+          "refId": "T",
+          "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m]) + rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m])",
+          "legendFormat": "total"
+        }
       ],
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "fieldConfig": {
-        "defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}},
+        "defaults": {
+          "unit": "iops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "read"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#56A64B"}}]},
-          {"matcher": {"id": "byName", "options": "write"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#E02F44"}}]},
-          {"matcher": {"id": "byName", "options": "total"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#3274D9"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56A64B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E02F44"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274D9"
+                }
+              }
+            ]
+          }
         ]
       }
     },
@@ -139,23 +518,106 @@
       "id": 21,
       "title": "Latency (read / write)",
       "description": "rate(time)/rate(ops). Thresholds at 5 ms (warn) and 8 ms (critical).",
-      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 6},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_pool_read_time_seconds_total{pool=~\"$pool\"}[5m]) / clamp_min(rate(ssv_pool_read_ops_total{pool=~\"$pool\"}[5m]), 1)", "legendFormat": "read"},
-        {"refId": "W", "expr": "rate(ssv_pool_write_time_seconds_total{pool=~\"$pool\"}[5m]) / clamp_min(rate(ssv_pool_write_ops_total{pool=~\"$pool\"}[5m]), 1)", "legendFormat": "write"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_pool_read_time_seconds_total{pool=~\"$pool\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m]), 1)",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_pool_write_time_seconds_total{pool=~\"$pool\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m]), 1)",
+          "legendFormat": "write"
+        }
       ],
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 4,
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.008
+              }
+            ]
+          }
         },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "read"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#56A64B"}}]},
-          {"matcher": {"id": "byName", "options": "write"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF780A"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56A64B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF780A"
+                }
+              }
+            ]
+          }
         ]
       }
     },
@@ -166,19 +628,78 @@
       "collapsed": false,
       "repeat": "vdisk",
       "repeatDirection": "v",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13}
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      }
     },
     {
       "type": "stat",
       "id": 30,
       "title": "Status",
-      "gridPos": {"h": 4, "w": 3, "x": 0, "y": 14},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_virtual_disk_status{vdisk=~\"$vdisk\"}"}],
-      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "textMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_virtual_disk_status{vdisk=~\"$vdisk\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
-          "mappings": [{"type": "value", "options": {"0": {"text": "Online", "color": "green", "index": 0}, "1": {"text": "Offline", "color": "red", "index": 1}, "2": {"text": "Failed Redundancy", "color": "orange", "index": 2}, "3": {"text": "Failed", "color": "red", "index": 3}, "4": {"text": "Unknown", "color": "orange", "index": 4}}}]
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Online",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Offline",
+                  "color": "red",
+                  "index": 1
+                },
+                "2": {
+                  "text": "Failed Redundancy",
+                  "color": "orange",
+                  "index": 2
+                },
+                "3": {
+                  "text": "Failed",
+                  "color": "red",
+                  "index": 3
+                },
+                "4": {
+                  "text": "Unknown",
+                  "color": "orange",
+                  "index": 4
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -186,25 +707,90 @@
       "type": "stat",
       "id": 31,
       "title": "Size",
-      "gridPos": {"h": 4, "w": 3, "x": 3, "y": 14},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "ssv_virtual_disk_size_bytes{vdisk=~\"$vdisk\"}"}],
-      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
-      "fieldConfig": {"defaults": {"unit": "bytes", "decimals": 1}}
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 3,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ssv_virtual_disk_size_bytes{vdisk=~\"$vdisk\",group=~\"$group\"}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1
+        }
+      }
     },
     {
       "type": "stat",
       "id": 32,
       "title": "Read cache hit",
-      "gridPos": {"h": 4, "w": 3, "x": 6, "y": 14},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\"}[5m]) / clamp_min(rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\"}[5m]) + rate(ssv_virtual_disk_cache_read_misses_total{vdisk=~\"$vdisk\"}[5m]), 1)"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 6,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_cache_read_misses_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]), 1)"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 50}, {"color": "green", "value": 80}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
         }
       }
     },
@@ -212,15 +798,53 @@
       "type": "stat",
       "id": 33,
       "title": "Write cache hit",
-      "gridPos": {"h": 4, "w": 3, "x": 9, "y": 14},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "100 * rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\"}[5m]) / clamp_min(rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\"}[5m]) + rate(ssv_virtual_disk_cache_write_misses_total{vdisk=~\"$vdisk\"}[5m]), 1)"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 9,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_cache_write_misses_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]), 1)"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "orange", "value": 50}, {"color": "green", "value": 80}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
         }
       }
     },
@@ -228,15 +852,53 @@
       "type": "stat",
       "id": 34,
       "title": "Avg latency",
-      "gridPos": {"h": 4, "w": 3, "x": 12, "y": 14},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [{"refId": "A", "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\"}[5m]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\"}[5m]), 1)"}],
-      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "center", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]), 1)"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 4,
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.008
+              }
+            ]
+          }
         }
       }
     },
@@ -244,20 +906,105 @@
       "type": "timeseries",
       "id": 40,
       "title": "IOPS",
-      "gridPos": {"h": 8, "w": 9, "x": 15, "y": 14},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 15,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\"}[5m])", "legendFormat": "read"},
-        {"refId": "W", "expr": "rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\"}[5m])", "legendFormat": "write"},
-        {"refId": "T", "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\"}[5m])", "legendFormat": "total"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "legendFormat": "write"
+        },
+        {
+          "refId": "T",
+          "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "legendFormat": "total"
+        }
       ],
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "fieldConfig": {
-        "defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}},
+        "defaults": {
+          "unit": "iops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "read"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#56A64B"}}]},
-          {"matcher": {"id": "byName", "options": "write"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#E02F44"}}]},
-          {"matcher": {"id": "byName", "options": "total"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#3274D9"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56A64B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E02F44"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274D9"
+                }
+              }
+            ]
+          }
         ]
       }
     },
@@ -265,60 +1012,185 @@
       "type": "timeseries",
       "id": 41,
       "title": "Throughput",
-      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 18},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_virtual_disk_read_bytes_total{vdisk=~\"$vdisk\"}[5m])", "legendFormat": "read"},
-        {"refId": "W", "expr": "rate(ssv_virtual_disk_write_bytes_total{vdisk=~\"$vdisk\"}[5m])", "legendFormat": "write"}
+        {
+          "refId": "R",
+          "expr": "rate(ssv_virtual_disk_read_bytes_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "W",
+          "expr": "rate(ssv_virtual_disk_write_bytes_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "legendFormat": "write"
+        }
       ],
-      "options": {"legend": {"displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "fieldConfig": {
-        "defaults": {"unit": "binBps", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}},
+        "defaults": {
+          "unit": "binBps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0
+          }
+        },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "read"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#56A64B"}}]},
-          {"matcher": {"id": "byName", "options": "write"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#E02F44"}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "read"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56A64B"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "write"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#E02F44"
+                }
+              }
+            ]
+          }
         ]
       }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["ssv", "datacore", "storage"],
+  "tags": [
+    "ssv",
+    "datacore",
+    "storage"
+  ],
   "templating": {
     "list": [
       {
-        "name": "pool",
-        "label": "Pool",
+        "name": "group",
+        "label": "Group",
         "type": "query",
-        "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "definition": "label_values(ssv_pool_status, pool)",
-        "query": {"qryType": 1, "query": "label_values(ssv_pool_status, pool)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(ssv_up, group)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ssv_up, group)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "sort": 1,
         "multi": true,
         "includeAll": true,
         "allValue": ".+",
-        "current": {"text": "All", "value": "$__all"}
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "pool",
+        "label": "Pool",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(ssv_pool_status{group=~\"$group\"}, pool)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ssv_pool_status{group=~\"$group\"}, pool)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       },
       {
         "name": "vdisk",
         "label": "Virtual Disk",
         "type": "query",
-        "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "definition": "label_values(ssv_virtual_disk_status, vdisk)",
-        "query": {"qryType": 1, "query": "label_values(ssv_virtual_disk_status, vdisk)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(ssv_virtual_disk_status{group=~\"$group\"}, vdisk)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(ssv_virtual_disk_status{group=~\"$group\"}, vdisk)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
         "refresh": 2,
         "sort": 1,
         "multi": true,
         "includeAll": true,
         "allValue": ".+",
-        "current": {"text": "All", "value": "$__all"}
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
-  "time": {"from": "now-1h", "to": "now"},
-  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]},
-  "title": "SSV — Storage",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ]
+  },
+  "title": "SSV \u2014 Storage",
   "uid": "ssv-storage",
   "version": 1
 }

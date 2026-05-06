@@ -121,6 +121,18 @@ boards had panels we couldn't fill from current metrics). Expose:
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Multi-group test stack + dashboards. Prometheus
+  config is now generated at container start by
+  `deploy/prometheus/gen-config.sh` from
+  `EXPORTER_TARGETS=name1=host:port,name2=host:port` — each target
+  gets a `group` label. All 3 dashboards gained a `Group` template
+  variable and every PromQL selector is filtered with
+  `{group=~"$group"}`. Variables (`server`/`pool`/`vdisk`) cascade on
+  the active group via `label_values(metric{group=~"$group"}, ...)`.
+  Servers dashboard gained a "Server versions" table reading
+  `ssv_server_info` (host_name, product_name, product_version,
+  product_build, os_version). Inventory collector now also exposes
+  `product_name` on `ssv_server_info`.
 - 2026-05-06 — Test stack under `deploy/` with docker-compose
   (Prometheus 3.5 + Grafana 12), datasource + 3 dashboards
   (Overview / Servers / Storage) provisioned. Prometheus config is a
