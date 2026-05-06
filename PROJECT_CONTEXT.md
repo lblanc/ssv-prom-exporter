@@ -111,6 +111,17 @@ boards had panels we couldn't fill from current metrics). Expose:
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Alerts now exposed in detail. New `ssv.Alert` type
+  + `client.Alerts()` replace the old `AlertsCount`. Health
+  collector emits `ssv_alert_info{alert_id, machine_id, machine,
+  level, high_priority, needs_ack, caller, message}` (gauge=1) plus
+  `ssv_alert_age_seconds{alert_id}`. Overview dashboard gains a
+  table panel listing every alert, sorted by age, with color-coded
+  level cells and an "Alert details" data link on the "Active
+  Alerts" stat.
+- 2026-05-06 — Storage dashboard: per-pool "Physical disks of
+  $pool" panels moved into a collapsed row (click to expand) so
+  the at-a-glance pool view stays compact.
 - 2026-05-06 — Physical disks + pool members. New `ssv.PhysicalDisk`
   and `ssv.PoolMember` types. Inventory filters /physicalDisks down
   to Type==4 (real pool-member disks) and emits `ssv_physical_disk_

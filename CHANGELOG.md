@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] - 2026-05-06
+
+### Added
+- **Per-alert detail metrics**. The exporter previously emitted only
+  the count `ssv_alerts_total`; it now also emits one
+  `ssv_alert_info{alert_id, machine_id, machine, level,
+  high_priority, needs_ack, caller, message}` gauge per active
+  alert plus an `ssv_alert_age_seconds{alert_id}` gauge derived
+  from the alert's TimeStamp. SSV's `Level`: 1 = Info,
+  2 = Warning, 3 = Error.
+- New `ssv.Alert` type and `Client.Alerts()` (replacing the old
+  `AlertsCount`).
+
+### Changed
+- **Overview dashboard**: new "Active alerts" row with a table
+  showing every alert (level / server / source / message / age),
+  sorted by age. The "Active Alerts" stat now carries a click-link
+  that focuses the table.
+- **Storage dashboard**: the per-pool physical-disk section
+  (table + 4 time-series) now lives in a row collapsed by default
+  ("Physical disks of \$pool — click to expand") so the at-a-glance
+  pool view stays compact.
+
+[v0.5.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.5.0
+
 ## [v0.4.0] - 2026-05-06
 
 ### Added

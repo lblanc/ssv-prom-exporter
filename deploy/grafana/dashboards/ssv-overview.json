@@ -108,7 +108,7 @@
       "type": "stat",
       "id": 2,
       "title": "Active Alerts",
-      "description": "Sum of items in SSV's /alerts endpoint.",
+      "description": "Sum of items in SSV's /alerts endpoint. Click to view details below.",
       "gridPos": {
         "h": 4,
         "w": 3,
@@ -123,6 +123,13 @@
         {
           "refId": "A",
           "expr": "sum(ssv_alerts_total{group=~\"$group\"})"
+        }
+      ],
+      "links": [
+        {
+          "title": "View alert details",
+          "url": "/d/ssv-overview/ssv-overview?viewPanel=40&var-group=${group}",
+          "targetBlank": false
         }
       ],
       "options": {
@@ -470,6 +477,74 @@
     },
     {
       "type": "row",
+      "id": 150,
+      "title": "Active alerts",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "panels": []
+    },
+    {
+      "type": "table",
+      "id": 40,
+      "title": "Alert details",
+      "description": "One row per alert from /alerts. Level: 1 = Info, 2 = Warning, 3 = Error (vendor-defined). Click 'Active Alerts' above to focus this panel.",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "INFO", "expr": "ssv_alert_info{group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "AGE", "expr": "ssv_alert_age_seconds{group=~\"$group\"}", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "filterFieldsByName", "options": {"include": {"names": ["group", "machine", "level", "high_priority", "needs_ack", "caller", "message", "Value #AGE"]}}},
+        {"id": "merge"},
+        {"id": "organize", "options": {
+          "renameByName": {
+            "group": "Group", "machine": "Server", "level": "Level",
+            "high_priority": "Prio", "needs_ack": "Ack",
+            "caller": "Source", "message": "Message",
+            "Value #AGE": "Age"
+          },
+          "indexByName": {
+            "group": 0, "machine": 1, "level": 2,
+            "high_priority": 3, "needs_ack": 4,
+            "caller": 5, "message": 6, "Value #AGE": 7
+          }
+        }},
+        {"id": "sortBy", "options": {"sort": [{"field": "Age", "desc": false}]}}
+      ],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Level"},
+            "properties": [
+              {"id": "mappings", "value": [{"type": "value", "options": {"1": {"text": "Info", "color": "blue", "index": 0}, "2": {"text": "Warning", "color": "orange", "index": 1}, "3": {"text": "Error", "color": "red", "index": 2}}}]},
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+              {"id": "custom.width", "value": 80}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Prio"},
+            "properties": [
+              {"id": "mappings", "value": [{"type": "value", "options": {"true": {"text": "HIGH", "color": "red", "index": 0}, "false": {"text": "—", "color": "transparent", "index": 1}}}]},
+              {"id": "custom.width", "value": 60}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Ack"},
+            "properties": [
+              {"id": "mappings", "value": [{"type": "value", "options": {"true": {"text": "needs ack", "color": "orange", "index": 0}, "false": {"text": "", "color": "transparent", "index": 1}}}]},
+              {"id": "custom.width", "value": 90}
+            ]
+          },
+          {"matcher": {"id": "byName", "options": "Age"}, "properties": [{"id": "unit", "value": "s"}, {"id": "decimals", "value": 0}, {"id": "custom.width", "value": 100}]},
+          {"matcher": {"id": "byName", "options": "Server"}, "properties": [{"id": "custom.width", "value": 110}]},
+          {"matcher": {"id": "byName", "options": "Source"}, "properties": [{"id": "custom.width", "value": 240}]}
+        ]
+      }
+    },
+    {
+      "type": "row",
       "id": 200,
       "title": "Status",
       "collapsed": false,
@@ -477,7 +552,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 14
       },
       "panels": []
     },

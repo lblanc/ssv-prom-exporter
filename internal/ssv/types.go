@@ -157,6 +157,28 @@ type PoolMember struct {
 	Size        Bytes  `json:"Size"`
 }
 
+// Alert is the subset of /alerts surfaced as metrics. SSV's Level is
+// vendor-defined: in PSP 20 the lab values are 1, 2 and 3 (loosely
+// Info / Warning / Error). MessageText is the human-readable string
+// shown in the SSV console; Caller is the internal subsystem that
+// raised it (e.g. "ServerMachineGroup.UpdateLicensedStorage").
+type Alert struct {
+	Caller           string    `json:"Caller"`
+	HighPriority     bool      `json:"HighPriority"`
+	ID               AlertID   `json:"Id"`
+	Level            int       `json:"Level"`
+	MachineName      string    `json:"MachineName"`
+	MessageText      string    `json:"MessageText"`
+	NeedsAcknowledge bool      `json:"NeedsAcknowledge"`
+	TimeStamp        Time      `json:"TimeStamp"`
+}
+
+// AlertID is the composite identifier SSV uses for /alerts entries.
+type AlertID struct {
+	MachineID      string `json:"MachineId"`
+	SequenceNumber int64  `json:"SequenceNumber"`
+}
+
 // Monitor is the subset of /monitors fields surfaced as metrics.
 //
 // State is vendor-defined; in the PSP 20 lab we observe values 1, 2 and 4

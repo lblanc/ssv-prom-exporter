@@ -622,133 +622,612 @@
       }
     },
     {
-      "type": "table",
-      "id": 50,
-      "title": "Physical disks of $pool",
-      "description": "Pool-member physical disks (Type=4 in /physicalDisks). Tier comes from /poolMembers; vendor / product / SSD flag from /physicalDisks InquiryData.",
-      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 13},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"refId": "POOL",   "expr": "ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "INFO",   "expr": "ssv_physical_disk_info{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "STATUS", "expr": "ssv_physical_disk_status{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "SIZE",   "expr": "ssv_physical_disk_size_bytes{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "IOPS",   "expr": "(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s])) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "BPS",    "expr": "(rate(ssv_physical_disk_read_bytes_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_bytes_total{group=~\"$group\"}[10s])) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "LAT",    "expr": "(rate(ssv_physical_disk_io_time_seconds_total{group=~\"$group\"}[10s]) / clamp_min(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s]), 1)) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "MAXLAT", "expr": "ssv_physical_disk_io_max_time_seconds{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "QUEUE",  "expr": "ssv_physical_disk_avg_queue_length{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "PEND",   "expr": "ssv_physical_disk_pending_commands{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true}
-      ],
-      "transformations": [
-        {"id": "filterFieldsByName", "options": {"include": {"names": ["disk", "tier", "vendor", "product", "is_solid_state", "host_id", "Value #STATUS", "Value #SIZE", "Value #IOPS", "Value #BPS", "Value #LAT", "Value #MAXLAT", "Value #QUEUE", "Value #PEND"]}}},
-        {"id": "merge"},
-        {"id": "organize", "options": {
-          "renameByName": {
-            "disk": "Disk", "tier": "Tier", "vendor": "Vendor", "product": "Product",
-            "is_solid_state": "SSD", "host_id": "Host",
-            "Value #STATUS": "Status", "Value #SIZE": "Size",
-            "Value #IOPS": "IOPS", "Value #BPS": "B/s",
-            "Value #LAT": "Avg Lat", "Value #MAXLAT": "Max Lat",
-            "Value #QUEUE": "Queue", "Value #PEND": "Pending"
+      "type": "row",
+      "id": 250,
+      "title": "Physical disks of $pool (click to expand)",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "panels": [
+        {
+          "type": "table",
+          "id": 50,
+          "title": "Physical disks of $pool",
+          "description": "Pool-member physical disks (Type=4 in /physicalDisks). Tier comes from /poolMembers; vendor / product / SSD flag from /physicalDisks InquiryData.",
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 13
           },
-          "indexByName": {
-            "disk": 0, "tier": 1, "vendor": 2, "product": 3, "is_solid_state": 4,
-            "host_id": 5, "Value #STATUS": 6, "Value #SIZE": 7,
-            "Value #IOPS": 8, "Value #BPS": 9,
-            "Value #LAT": 10, "Value #MAXLAT": 11,
-            "Value #QUEUE": 12, "Value #PEND": 13
-          }
-        }}
-      ],
-      "fieldConfig": {
-        "defaults": {"custom": {"align": "auto"}},
-        "overrides": [
-          {
-            "matcher": {"id": "byName", "options": "Status"},
-            "properties": [
-              {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "Unknown", "color": "orange", "index": 0}, "1": {"text": "Online", "color": "green", "index": 1}, "2": {"text": "Not Ready", "color": "orange", "index": 2}, "3": {"text": "No Media", "color": "orange", "index": 3}, "4": {"text": "Offline", "color": "red", "index": 4}, "5": {"text": "Failed", "color": "red", "index": 5}, "6": {"text": "Failed", "color": "red", "index": 6}}}]},
-              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "POOL",
+              "expr": "ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "INFO",
+              "expr": "ssv_physical_disk_info{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "STATUS",
+              "expr": "ssv_physical_disk_status{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "SIZE",
+              "expr": "ssv_physical_disk_size_bytes{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "IOPS",
+              "expr": "(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s])) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "BPS",
+              "expr": "(rate(ssv_physical_disk_read_bytes_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_bytes_total{group=~\"$group\"}[10s])) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "LAT",
+              "expr": "(rate(ssv_physical_disk_io_time_seconds_total{group=~\"$group\"}[10s]) / clamp_min(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s]), 1)) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "MAXLAT",
+              "expr": "ssv_physical_disk_io_max_time_seconds{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "QUEUE",
+              "expr": "ssv_physical_disk_avg_queue_length{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            },
+            {
+              "refId": "PEND",
+              "expr": "ssv_physical_disk_pending_commands{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "format": "table",
+              "instant": true
+            }
+          ],
+          "transformations": [
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "disk",
+                    "tier",
+                    "vendor",
+                    "product",
+                    "is_solid_state",
+                    "host_id",
+                    "Value #STATUS",
+                    "Value #SIZE",
+                    "Value #IOPS",
+                    "Value #BPS",
+                    "Value #LAT",
+                    "Value #MAXLAT",
+                    "Value #QUEUE",
+                    "Value #PEND"
+                  ]
+                }
+              }
+            },
+            {
+              "id": "merge"
+            },
+            {
+              "id": "organize",
+              "options": {
+                "renameByName": {
+                  "disk": "Disk",
+                  "tier": "Tier",
+                  "vendor": "Vendor",
+                  "product": "Product",
+                  "is_solid_state": "SSD",
+                  "host_id": "Host",
+                  "Value #STATUS": "Status",
+                  "Value #SIZE": "Size",
+                  "Value #IOPS": "IOPS",
+                  "Value #BPS": "B/s",
+                  "Value #LAT": "Avg Lat",
+                  "Value #MAXLAT": "Max Lat",
+                  "Value #QUEUE": "Queue",
+                  "Value #PEND": "Pending"
+                },
+                "indexByName": {
+                  "disk": 0,
+                  "tier": 1,
+                  "vendor": 2,
+                  "product": 3,
+                  "is_solid_state": 4,
+                  "host_id": 5,
+                  "Value #STATUS": 6,
+                  "Value #SIZE": 7,
+                  "Value #IOPS": 8,
+                  "Value #BPS": 9,
+                  "Value #LAT": 10,
+                  "Value #MAXLAT": 11,
+                  "Value #QUEUE": 12,
+                  "Value #PEND": 13
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Status"
+                },
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "value",
+                        "options": {
+                          "0": {
+                            "text": "Unknown",
+                            "color": "orange",
+                            "index": 0
+                          },
+                          "1": {
+                            "text": "Online",
+                            "color": "green",
+                            "index": 1
+                          },
+                          "2": {
+                            "text": "Not Ready",
+                            "color": "orange",
+                            "index": 2
+                          },
+                          "3": {
+                            "text": "No Media",
+                            "color": "orange",
+                            "index": 3
+                          },
+                          "4": {
+                            "text": "Offline",
+                            "color": "red",
+                            "index": 4
+                          },
+                          "5": {
+                            "text": "Failed",
+                            "color": "red",
+                            "index": 5
+                          },
+                          "6": {
+                            "text": "Failed",
+                            "color": "red",
+                            "index": 6
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Size"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "IOPS"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "iops"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "B/s"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "binBps"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Avg Lat"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 4
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Max Lat"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "s"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 4
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Queue"
+                },
+                "properties": [
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Pending"
+                },
+                "properties": [
+                  {
+                    "id": "decimals",
+                    "value": 0
+                  }
+                ]
+              }
             ]
-          },
-          {"matcher": {"id": "byName", "options": "Size"}, "properties": [{"id": "unit", "value": "bytes"}, {"id": "decimals", "value": 1}]},
-          {"matcher": {"id": "byName", "options": "IOPS"}, "properties": [{"id": "unit", "value": "iops"}, {"id": "decimals", "value": 0}]},
-          {"matcher": {"id": "byName", "options": "B/s"}, "properties": [{"id": "unit", "value": "binBps"}, {"id": "decimals", "value": 1}]},
-          {"matcher": {"id": "byName", "options": "Avg Lat"}, "properties": [{"id": "unit", "value": "s"}, {"id": "decimals", "value": 4}]},
-          {"matcher": {"id": "byName", "options": "Max Lat"}, "properties": [{"id": "unit", "value": "s"}, {"id": "decimals", "value": 4}]},
-          {"matcher": {"id": "byName", "options": "Queue"}, "properties": [{"id": "decimals", "value": 0}]},
-          {"matcher": {"id": "byName", "options": "Pending"}, "properties": [{"id": "decimals", "value": 0}]}
-        ]
-      }
-    },
-    {
-      "type": "timeseries",
-      "id": 51,
-      "title": "Physical disk IOPS — $pool",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"refId": "R", "expr": "rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} read"},
-        {"refId": "W", "expr": "rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} write"}
-      ],
-      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
-      "fieldConfig": {"defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
-    },
-    {
-      "type": "timeseries",
-      "id": 53,
-      "title": "Physical disk throughput — $pool",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"refId": "R", "expr": "rate(ssv_physical_disk_read_bytes_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} read"},
-        {"refId": "W", "expr": "rate(ssv_physical_disk_write_bytes_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} write"}
-      ],
-      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
-      "fieldConfig": {"defaults": {"unit": "binBps", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
-    },
-    {
-      "type": "timeseries",
-      "id": 52,
-      "title": "Physical disk latency (avg + max) — $pool",
-      "description": "Solid line = avg (rate(io_time)/rate(ops)). Dashed = max gauge (peak observed). Thresholds 5 / 8 ms.",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 30},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"refId": "AVG", "expr": "(rate(ssv_physical_disk_io_time_seconds_total{group=~\"$group\"}[10s]) / clamp_min(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s]), 1)) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} avg"},
-        {"refId": "MAX", "expr": "ssv_physical_disk_io_max_time_seconds{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} max"}
-      ],
-      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 4,
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 5, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          }
         },
-        "overrides": [
-          {"matcher": {"id": "byRegexp", "options": "/.*max/"}, "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}]}
-        ]
-      }
-    },
-    {
-      "type": "timeseries",
-      "id": 54,
-      "title": "Physical disk queue & pending commands — $pool",
-      "description": "Queue length and pending IO per disk. A sustained climb is a saturation signal.",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
-      "targets": [
-        {"refId": "Q",  "expr": "ssv_physical_disk_avg_queue_length{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} queue"},
-        {"refId": "PE", "expr": "ssv_physical_disk_pending_commands{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} pending"}
-      ],
-      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
-      "fieldConfig": {
-        "defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 5, "showPoints": "never", "axisSoftMin": 0}},
-        "overrides": [
-          {"matcher": {"id": "byRegexp", "options": "/.*pending/"}, "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}]}
-        ]
-      }
+        {
+          "type": "timeseries",
+          "id": 51,
+          "title": "Physical disk IOPS \u2014 $pool",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 22
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "R",
+              "expr": "rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} read"
+            },
+            {
+              "refId": "W",
+              "expr": "rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} write"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "mean",
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "iops",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "id": 53,
+          "title": "Physical disk throughput \u2014 $pool",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 22
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "R",
+              "expr": "rate(ssv_physical_disk_read_bytes_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} read"
+            },
+            {
+              "refId": "W",
+              "expr": "rate(ssv_physical_disk_write_bytes_total{group=~\"$group\"}[10s]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} write"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "mean",
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "binBps",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "id": 52,
+          "title": "Physical disk latency (avg + max) \u2014 $pool",
+          "description": "Solid line = avg (rate(io_time)/rate(ops)). Dashed = max gauge (peak observed). Thresholds 5 / 8 ms.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 30
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "AVG",
+              "expr": "(rate(ssv_physical_disk_io_time_seconds_total{group=~\"$group\"}[10s]) / clamp_min(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[10s]), 1)) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} avg"
+            },
+            {
+              "refId": "MAX",
+              "expr": "ssv_physical_disk_io_max_time_seconds{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} max"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "mean",
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "decimals": 4,
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "showPoints": "never",
+                "axisSoftMin": 0,
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 0.005
+                  },
+                  {
+                    "color": "red",
+                    "value": 0.008
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*max/"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        10
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "timeseries",
+          "id": 54,
+          "title": "Physical disk queue & pending commands \u2014 $pool",
+          "description": "Queue length and pending IO per disk. A sustained climb is a saturation signal.",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 30
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "targets": [
+            {
+              "refId": "Q",
+              "expr": "ssv_physical_disk_avg_queue_length{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} queue"
+            },
+            {
+              "refId": "PE",
+              "expr": "ssv_physical_disk_pending_commands{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}",
+              "legendFormat": "{{disk}} pending"
+            }
+          ],
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "calcs": [
+                "mean",
+                "lastNotNull",
+                "max"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 2,
+                "fillOpacity": 5,
+                "showPoints": "never",
+                "axisSoftMin": 0
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*pending/"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "fill": "dash",
+                      "dash": [
+                        10,
+                        10
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     {
       "type": "row",
@@ -1226,23 +1705,116 @@
       "id": 42,
       "title": "Latency",
       "description": "Avg = rate(io_time)/rate(ops). Max = peak observed in the last sampling window. Thresholds at 5 ms (warn) / 8 ms (critical).",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        {"refId": "AVG", "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\",group=~\"$group\"}[10s]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[10s]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[10s]), 1)", "legendFormat": "avg"},
-        {"refId": "MAX", "expr": "ssv_virtual_disk_io_max_time_seconds{vdisk=~\"$vdisk\",group=~\"$group\"}", "legendFormat": "max"}
+        {
+          "refId": "AVG",
+          "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\",group=~\"$group\"}[10s]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[10s]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[10s]), 1)",
+          "legendFormat": "avg"
+        },
+        {
+          "refId": "MAX",
+          "expr": "ssv_virtual_disk_io_max_time_seconds{vdisk=~\"$vdisk\",group=~\"$group\"}",
+          "legendFormat": "max"
+        }
       ],
-      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "decimals": 4,
-          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisSoftMin": 0,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.005
+              },
+              {
+                "color": "red",
+                "value": 0.008
+              }
+            ]
+          }
         },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "avg"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#3274D9"}}]},
-          {"matcher": {"id": "byName", "options": "max"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF780A"}}, {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}]}
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3274D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FF780A"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              }
+            ]
+          }
         ]
       }
     }
