@@ -50,8 +50,7 @@ Feature-complete v0: three collectors + REST failover + Windows
 service mode all in. Next round of polish is config + retry + CI.
 
 ## Remaining tasks
-- [ ] Verify the unit of SSV's `Total*Time` counters and add the latency
-      / IO-time metrics that were skipped from the v0 perf set
+(none for now)
 
 ## Completed
 - 2026-05-05 — REST API discovery against PSP 20 lab; all key endpoints
@@ -106,6 +105,18 @@ service mode all in. Next round of polish is config + retry + CI.
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Latency / IO-time metrics added to the perf collector
+  (`internal/collectors/performance.go`). Unit verified empirically
+  against PSP 20 (Δ-time / Δ-ops fell in 0.6–2.8 → ms). New metrics:
+  per pipeline class on the server
+  (`ssv_server_class_io_{operations_total,time_seconds_total,max_time_seconds}`
+  with `class ∈ {front_end_target, mirror_target, physical_disk, pool,
+  target}`); pool read/write/io time + max-time variants
+  (`ssv_pool_{read,write,io}_{time_seconds_total,max_time_seconds}`);
+  vdisk `ssv_virtual_disk_io_time_seconds_total` /
+  `ssv_virtual_disk_io_max_time_seconds`. ms→s scaling lives in
+  `timeScale`. `perfMapping` extended with `scale` and `extraLabels`
+  to support per-class fan-out.
 - 2026-05-06 — Retry/backoff on transient SSV failures
   (`internal/ssv/client.go`). `GetRaw` now wraps the failover loop in a
   retry loop (default 2 retries) with exponential backoff (200ms base,

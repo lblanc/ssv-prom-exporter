@@ -160,6 +160,24 @@ install command prints a warning when `-pass` was used without
 `-config`, and the YAML config (below) is the recommended way to keep
 credentials out of `sc qc`.
 
+### SSV perf timers are milliseconds; exported as Prometheus seconds
+Decision: every `*Time` counter pulled from `/performance/{id}`
+(`Total*Time`, `Max*Time`, `*MaxIOTime`) is treated as milliseconds and
+multiplied by `timeScale = 1e-3` before emission, so all latency
+metrics expose seconds — Prometheus convention.
+Rationale: verified empirically against PSP 20 by sampling
+`/performance/{server-id}` twice ~6 s apart and computing
+`Δ TotalOperationsTime / Δ Operations` for several pipeline classes.
+Results landed in the 0.6–2.8 range, matching SSD/cache latencies in
+ms; the same numbers in μs (ns × 100) would imply RAM-speed IO,
+which is impossible for a network-fronted SDS. `MaxIOTime` peaks at
+15 in the lab also fit ms (15 ms peak = healthy).
+Trade-off: the unit isn't stamped in the API response, so a future
+SSV release that switched timers to μs or 100ns ticks would silently
+break the conversion. Mitigation: the conversion lives in one
+constant (`internal/collectors/performance.go::timeScale`); a sanity
+test against a known-active lab catches it.
+
 ### Retry/backoff layered on top of failover, not per-endpoint
 Decision: `GetRaw` retries up to `Retries` additional times (default 2)
 when *every* configured endpoint has failed transiently in one pass.

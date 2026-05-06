@@ -29,11 +29,26 @@ type Performance struct {
 
 // perfMapping links a SSV counter name to the Prometheus desc and value
 // type used to emit it.
+//
+// scale converts the raw int64 value before emission (e.g. 1e-3 for
+// SSV's millisecond timers, which Prometheus convention exposes as
+// seconds). zero scale is treated as 1.0.
+//
+// extraLabels are appended to the per-object label values supplied at
+// emit time. This lets a single Desc (with one extra label such as
+// "class") fan out into several mappings, each pinned to a fixed value.
 type perfMapping struct {
-	key     string
-	desc    *prometheus.Desc
-	valType prometheus.ValueType
+	key         string
+	desc        *prometheus.Desc
+	valType     prometheus.ValueType
+	scale       float64
+	extraLabels []string
 }
+
+// timeScale converts SSV's millisecond timers to Prometheus' canonical
+// seconds. Verified empirically against PSP 20: average IO time per
+// op falls in the 0.6–3 range, matching SSD/cache latencies in ms.
+const timeScale = 1e-3
 
 func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performance {
 	if log == nil {
@@ -43,6 +58,7 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 		workers = 8
 	}
 	serverLabels := []string{"server_id", "server"}
+	serverClassLabels := append(append([]string{}, serverLabels...), "class")
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 
@@ -51,39 +67,65 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 		log:     log,
 		workers: workers,
 	}
-	c.serverMappings = []perfMapping{
-		{"TotalBytesRead", desc("server_read_bytes_total", "Cumulative bytes read by this DataCore server.", serverLabels), prometheus.CounterValue},
-		{"TotalBytesWritten", desc("server_write_bytes_total", "Cumulative bytes written by this DataCore server.", serverLabels), prometheus.CounterValue},
-		{"TotalReads", desc("server_read_ops_total", "Cumulative read operations on this DataCore server.", serverLabels), prometheus.CounterValue},
-		{"TotalWrites", desc("server_write_ops_total", "Cumulative write operations on this DataCore server.", serverLabels), prometheus.CounterValue},
-		{"CacheReadHits", desc("server_cache_read_hits_total", "Cumulative cache read hits.", serverLabels), prometheus.CounterValue},
-		{"CacheReadMisses", desc("server_cache_read_misses_total", "Cumulative cache read misses.", serverLabels), prometheus.CounterValue},
-		{"CacheWriteHits", desc("server_cache_write_hits_total", "Cumulative cache write hits.", serverLabels), prometheus.CounterValue},
-		{"CacheWriteMisses", desc("server_cache_write_misses_total", "Cumulative cache write misses.", serverLabels), prometheus.CounterValue},
-		{"CacheSize", desc("server_cache_size_bytes", "Configured cache size on this server.", serverLabels), prometheus.GaugeValue},
-		{"FreeCache", desc("server_cache_free_bytes", "Free cache space on this server.", serverLabels), prometheus.GaugeValue},
+	// Per-class shared descs, fanned out below by class label.
+	classOps := desc("server_class_io_operations_total", "Cumulative IO operations on this DataCore server, broken down by IO pipeline class.", serverClassLabels)
+	classTime := desc("server_class_io_time_seconds_total", "Cumulative time spent on IO operations on this DataCore server, broken down by IO pipeline class.", serverClassLabels)
+	classMaxTime := desc("server_class_io_max_time_seconds", "Peak IO duration recently observed on this DataCore server, broken down by IO pipeline class.", serverClassLabels)
+	type cls struct{ label, prefix string }
+	for _, k := range []cls{
+		{"front_end_target", "FrontEndTarget"},
+		{"mirror_target", "MirrorTarget"},
+		{"physical_disk", "PhysicalDisk"},
+		{"pool", "Pool"},
+		{"target", "Target"},
+	} {
+		c.serverMappings = append(c.serverMappings,
+			perfMapping{key: k.prefix + "Operations", desc: classOps, valType: prometheus.CounterValue, extraLabels: []string{k.label}},
+			perfMapping{key: k.prefix + "TotalOperationsTime", desc: classTime, valType: prometheus.CounterValue, scale: timeScale, extraLabels: []string{k.label}},
+			perfMapping{key: k.prefix + "MaxIOTime", desc: classMaxTime, valType: prometheus.GaugeValue, scale: timeScale, extraLabels: []string{k.label}},
+		)
 	}
+	c.serverMappings = append(c.serverMappings,
+		perfMapping{key: "TotalBytesRead", desc: desc("server_read_bytes_total", "Cumulative bytes read by this DataCore server.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "TotalBytesWritten", desc: desc("server_write_bytes_total", "Cumulative bytes written by this DataCore server.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "TotalReads", desc: desc("server_read_ops_total", "Cumulative read operations on this DataCore server.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "TotalWrites", desc: desc("server_write_ops_total", "Cumulative write operations on this DataCore server.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "CacheReadHits", desc: desc("server_cache_read_hits_total", "Cumulative cache read hits.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "CacheReadMisses", desc: desc("server_cache_read_misses_total", "Cumulative cache read misses.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "CacheWriteHits", desc: desc("server_cache_write_hits_total", "Cumulative cache write hits.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "CacheWriteMisses", desc: desc("server_cache_write_misses_total", "Cumulative cache write misses.", serverLabels), valType: prometheus.CounterValue},
+		perfMapping{key: "CacheSize", desc: desc("server_cache_size_bytes", "Configured cache size on this server.", serverLabels), valType: prometheus.GaugeValue},
+		perfMapping{key: "FreeCache", desc: desc("server_cache_free_bytes", "Free cache space on this server.", serverLabels), valType: prometheus.GaugeValue},
+	)
 	c.poolMappings = []perfMapping{
-		{"TotalBytesRead", desc("pool_read_bytes_total", "Cumulative bytes read from this pool.", poolLabels), prometheus.CounterValue},
-		{"TotalBytesWritten", desc("pool_write_bytes_total", "Cumulative bytes written to this pool.", poolLabels), prometheus.CounterValue},
-		{"TotalReads", desc("pool_read_ops_total", "Cumulative read operations on this pool.", poolLabels), prometheus.CounterValue},
-		{"TotalWrites", desc("pool_write_ops_total", "Cumulative write operations on this pool.", poolLabels), prometheus.CounterValue},
-		{"BytesTotal", desc("pool_capacity_bytes", "Total capacity of this pool.", poolLabels), prometheus.GaugeValue},
-		{"BytesAllocated", desc("pool_used_bytes", "Allocated bytes in this pool.", poolLabels), prometheus.GaugeValue},
-		{"BytesAvailable", desc("pool_available_bytes", "Available bytes in this pool.", poolLabels), prometheus.GaugeValue},
-		{"BytesReserved", desc("pool_reserved_bytes", "Reserved bytes in this pool.", poolLabels), prometheus.GaugeValue},
-		{"BytesInReclamation", desc("pool_reclamation_bytes", "Bytes currently being reclaimed in this pool.", poolLabels), prometheus.GaugeValue},
-		{"BytesOverSubscribed", desc("pool_oversubscribed_bytes", "Over-subscribed bytes in this pool.", poolLabels), prometheus.GaugeValue},
+		{key: "TotalBytesRead", desc: desc("pool_read_bytes_total", "Cumulative bytes read from this pool.", poolLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesWritten", desc: desc("pool_write_bytes_total", "Cumulative bytes written to this pool.", poolLabels), valType: prometheus.CounterValue},
+		{key: "TotalReads", desc: desc("pool_read_ops_total", "Cumulative read operations on this pool.", poolLabels), valType: prometheus.CounterValue},
+		{key: "TotalWrites", desc: desc("pool_write_ops_total", "Cumulative write operations on this pool.", poolLabels), valType: prometheus.CounterValue},
+		{key: "TotalReadTime", desc: desc("pool_read_time_seconds_total", "Cumulative time spent on read operations on this pool.", poolLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "TotalWriteTime", desc: desc("pool_write_time_seconds_total", "Cumulative time spent on write operations on this pool.", poolLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "TotalOperationsTime", desc: desc("pool_io_time_seconds_total", "Cumulative time spent on IO operations on this pool.", poolLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "MaxReadTime", desc: desc("pool_read_max_time_seconds", "Peak read duration recently observed on this pool.", poolLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		{key: "MaxWriteTime", desc: desc("pool_write_max_time_seconds", "Peak write duration recently observed on this pool.", poolLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		{key: "MaxReadWriteTime", desc: desc("pool_io_max_time_seconds", "Peak IO duration recently observed on this pool.", poolLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		{key: "BytesTotal", desc: desc("pool_capacity_bytes", "Total capacity of this pool.", poolLabels), valType: prometheus.GaugeValue},
+		{key: "BytesAllocated", desc: desc("pool_used_bytes", "Allocated bytes in this pool.", poolLabels), valType: prometheus.GaugeValue},
+		{key: "BytesAvailable", desc: desc("pool_available_bytes", "Available bytes in this pool.", poolLabels), valType: prometheus.GaugeValue},
+		{key: "BytesReserved", desc: desc("pool_reserved_bytes", "Reserved bytes in this pool.", poolLabels), valType: prometheus.GaugeValue},
+		{key: "BytesInReclamation", desc: desc("pool_reclamation_bytes", "Bytes currently being reclaimed in this pool.", poolLabels), valType: prometheus.GaugeValue},
+		{key: "BytesOverSubscribed", desc: desc("pool_oversubscribed_bytes", "Over-subscribed bytes in this pool.", poolLabels), valType: prometheus.GaugeValue},
 	}
 	c.vdiskMappings = []perfMapping{
-		{"TotalBytesRead", desc("virtual_disk_read_bytes_total", "Cumulative bytes read from this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"TotalBytesWritten", desc("virtual_disk_write_bytes_total", "Cumulative bytes written to this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"TotalReads", desc("virtual_disk_read_ops_total", "Cumulative read operations on this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"TotalWrites", desc("virtual_disk_write_ops_total", "Cumulative write operations on this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"CacheReadHits", desc("virtual_disk_cache_read_hits_total", "Cumulative cache read hits for this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"CacheReadMisses", desc("virtual_disk_cache_read_misses_total", "Cumulative cache read misses for this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"CacheWriteHits", desc("virtual_disk_cache_write_hits_total", "Cumulative cache write hits for this virtual disk.", vdiskLabels), prometheus.CounterValue},
-		{"CacheWriteMisses", desc("virtual_disk_cache_write_misses_total", "Cumulative cache write misses for this virtual disk.", vdiskLabels), prometheus.CounterValue},
+		{key: "TotalBytesRead", desc: desc("virtual_disk_read_bytes_total", "Cumulative bytes read from this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesWritten", desc: desc("virtual_disk_write_bytes_total", "Cumulative bytes written to this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalReads", desc: desc("virtual_disk_read_ops_total", "Cumulative read operations on this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalWrites", desc: desc("virtual_disk_write_ops_total", "Cumulative write operations on this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "CacheReadHits", desc: desc("virtual_disk_cache_read_hits_total", "Cumulative cache read hits for this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "CacheReadMisses", desc: desc("virtual_disk_cache_read_misses_total", "Cumulative cache read misses for this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "CacheWriteHits", desc: desc("virtual_disk_cache_write_hits_total", "Cumulative cache write hits for this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "CacheWriteMisses", desc: desc("virtual_disk_cache_write_misses_total", "Cumulative cache write misses for this virtual disk.", vdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalOperationsTime", desc: desc("virtual_disk_io_time_seconds_total", "Cumulative time spent on IO operations on this virtual disk.", vdiskLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "MaxReadWriteTime", desc: desc("virtual_disk_io_max_time_seconds", "Peak IO duration recently observed on this virtual disk.", vdiskLabels), valType: prometheus.GaugeValue, scale: timeScale},
 	}
 	return c
 }
@@ -180,6 +222,18 @@ func emitFromMap(ch chan<- prometheus.Metric, mappings []perfMapping, m ssv.Coun
 		if !ok {
 			continue
 		}
-		ch <- prometheus.MustNewConstMetric(mp.desc, mp.valType, float64(v), labels...)
+		scale := mp.scale
+		if scale == 0 {
+			scale = 1
+		}
+		val := float64(v) * scale
+		if len(mp.extraLabels) == 0 {
+			ch <- prometheus.MustNewConstMetric(mp.desc, mp.valType, val, labels...)
+			continue
+		}
+		full := make([]string, 0, len(labels)+len(mp.extraLabels))
+		full = append(full, labels...)
+		full = append(full, mp.extraLabels...)
+		ch <- prometheus.MustNewConstMetric(mp.desc, mp.valType, val, full...)
 	}
 }
