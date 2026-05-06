@@ -2,6 +2,18 @@
   "annotations": {"list": []},
   "editable": true,
   "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "SSV",
+      "tags": ["ssv"],
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
   "panels": [
     {
       "type": "row",

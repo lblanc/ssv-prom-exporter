@@ -2,6 +2,18 @@
   "annotations": {"list": []},
   "editable": true,
   "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "SSV",
+      "tags": ["ssv"],
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
   "panels": [
     {
       "type": "row",
@@ -289,31 +301,17 @@
         "current": {"text": "All", "value": "$__all"}
       },
       {
-        "name": "topN",
-        "label": "Top N vdisks",
-        "type": "custom",
-        "query": "5,10,20,50",
-        "current": {"text": "10", "value": "10"},
-        "options": [
-          {"text": "5", "value": "5"},
-          {"text": "10", "value": "10", "selected": true},
-          {"text": "20", "value": "20"},
-          {"text": "50", "value": "50"}
-        ]
-      },
-      {
         "name": "vdisk",
-        "label": "Virtual Disk (top by IOPS)",
+        "label": "Virtual Disk",
         "type": "query",
         "datasource": {"type": "prometheus", "uid": "prometheus"},
-        "definition": "query_result(topk($topN, sum by (vdisk) (rate(ssv_virtual_disk_read_ops_total[5m]) + rate(ssv_virtual_disk_write_ops_total[5m]))))",
-        "query": {"qryType": 3, "query": "topk($topN, sum by (vdisk) (rate(ssv_virtual_disk_read_ops_total[5m]) + rate(ssv_virtual_disk_write_ops_total[5m])))", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "definition": "label_values(ssv_virtual_disk_status, vdisk)",
+        "query": {"qryType": 1, "query": "label_values(ssv_virtual_disk_status, vdisk)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
         "refresh": 2,
         "sort": 1,
         "multi": true,
         "includeAll": true,
         "allValue": ".+",
-        "regex": "/vdisk=\"([^\"]+)\"/",
         "current": {"text": "All", "value": "$__all"}
       }
     ]

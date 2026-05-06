@@ -3,6 +3,18 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "SSV",
+      "tags": ["ssv"],
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
