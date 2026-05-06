@@ -1077,7 +1077,19 @@
         {
           "refId": "A",
           "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{group=~\"$group\"}[5m]))",
-          "legendFormat": "{{vdisk}}"
+          "legendFormat": "{{vdisk}}",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {"field": "Value", "desc": true}
+            ]
+          }
         }
       ],
       "options": {
