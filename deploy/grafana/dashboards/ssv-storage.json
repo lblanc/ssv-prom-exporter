@@ -424,17 +424,17 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[1m])",
           "legendFormat": "read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[1m])",
           "legendFormat": "write"
         },
         {
           "refId": "T",
-          "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m]) + rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[1m]) + rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[1m])",
           "legendFormat": "total"
         }
       ],
@@ -531,12 +531,12 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_pool_read_time_seconds_total{pool=~\"$pool\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m]), 1)",
+          "expr": "rate(ssv_pool_read_time_seconds_total{pool=~\"$pool\",group=~\"$group\"}[1m]) / clamp_min(rate(ssv_pool_read_ops_total{pool=~\"$pool\",group=~\"$group\"}[1m]), 1)",
           "legendFormat": "read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_pool_write_time_seconds_total{pool=~\"$pool\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[5m]), 1)",
+          "expr": "rate(ssv_pool_write_time_seconds_total{pool=~\"$pool\",group=~\"$group\"}[1m]) / clamp_min(rate(ssv_pool_write_ops_total{pool=~\"$pool\",group=~\"$group\"}[1m]), 1)",
           "legendFormat": "write"
         }
       ],
@@ -757,7 +757,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_cache_read_misses_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]), 1)"
+          "expr": "100 * rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) / clamp_min(rate(ssv_virtual_disk_cache_read_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) + rate(ssv_virtual_disk_cache_read_misses_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]), 1)"
         }
       ],
       "options": {
@@ -811,7 +811,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_cache_write_misses_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]), 1)"
+          "expr": "100 * rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) / clamp_min(rate(ssv_virtual_disk_cache_write_hits_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) + rate(ssv_virtual_disk_cache_write_misses_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]), 1)"
         }
       ],
       "options": {
@@ -865,7 +865,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]), 1)"
+          "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]), 1)"
         }
       ],
       "options": {
@@ -919,17 +919,17 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m])",
           "legendFormat": "read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m])",
           "legendFormat": "write"
         },
         {
           "refId": "T",
-          "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m])",
           "legendFormat": "total"
         }
       ],
@@ -1025,12 +1025,12 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_virtual_disk_read_bytes_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_virtual_disk_read_bytes_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m])",
           "legendFormat": "read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_virtual_disk_write_bytes_total{vdisk=~\"$vdisk\",group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_virtual_disk_write_bytes_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m])",
           "legendFormat": "write"
         }
       ],
@@ -1089,6 +1089,31 @@
               }
             ]
           }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 42,
+      "title": "Latency",
+      "description": "Avg = rate(io_time)/rate(ops). Max = peak observed in the last sampling window. Thresholds at 5 ms (warn) / 8 ms (critical).",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 22},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "AVG", "expr": "rate(ssv_virtual_disk_io_time_seconds_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) / clamp_min(rate(ssv_virtual_disk_read_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]) + rate(ssv_virtual_disk_write_ops_total{vdisk=~\"$vdisk\",group=~\"$group\"}[1m]), 1)", "legendFormat": "avg"},
+        {"refId": "MAX", "expr": "ssv_virtual_disk_io_max_time_seconds{vdisk=~\"$vdisk\",group=~\"$group\"}", "legendFormat": "max"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 4,
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "avg"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#3274D9"}}]},
+          {"matcher": {"id": "byName", "options": "max"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF780A"}}, {"id": "custom.lineStyle", "value": {"fill": "dash", "dash": [10, 10]}}]}
         ]
       }
     }

@@ -288,7 +288,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(ssv_server_read_ops_total{group=~\"$group\"}[5m])) + sum(rate(ssv_server_write_ops_total{group=~\"$group\"}[5m]))"
+          "expr": "sum(rate(ssv_server_read_ops_total{group=~\"$group\"}[1m])) + sum(rate(ssv_server_write_ops_total{group=~\"$group\"}[1m]))"
         }
       ],
       "options": {
@@ -331,7 +331,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(ssv_server_read_bytes_total{group=~\"$group\"}[5m])) + sum(rate(ssv_server_write_bytes_total{group=~\"$group\"}[5m]))"
+          "expr": "sum(rate(ssv_server_read_bytes_total{group=~\"$group\"}[1m])) + sum(rate(ssv_server_write_bytes_total{group=~\"$group\"}[1m]))"
         }
       ],
       "options": {
@@ -374,7 +374,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(sum(rate(ssv_pool_io_time_seconds_total{group=~\"$group\"}[5m]))) / (sum(rate(ssv_pool_read_ops_total{group=~\"$group\"}[5m])) + sum(rate(ssv_pool_write_ops_total{group=~\"$group\"}[5m])))"
+          "expr": "(sum(rate(ssv_pool_io_time_seconds_total{group=~\"$group\"}[1m]))) / (sum(rate(ssv_pool_read_ops_total{group=~\"$group\"}[1m])) + sum(rate(ssv_pool_write_ops_total{group=~\"$group\"}[1m])))"
         }
       ],
       "options": {
@@ -504,7 +504,7 @@
         },
         {
           "refId": "IOPS",
-          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_server_write_ops_total{group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_server_write_ops_total{group=~\"$group\"}[1m])",
           "format": "table",
           "instant": true
         }
@@ -636,7 +636,7 @@
         },
         {
           "refId": "IOPS",
-          "expr": "rate(ssv_pool_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_pool_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[1m])",
           "format": "table",
           "instant": true
         }
@@ -829,12 +829,12 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[1m])",
           "legendFormat": "{{server}} read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_server_write_ops_total{group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_server_write_ops_total{group=~\"$group\"}[1m])",
           "legendFormat": "{{server}} write"
         }
       ],
@@ -883,12 +883,12 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_server_read_bytes_total{group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_server_read_bytes_total{group=~\"$group\"}[1m])",
           "legendFormat": "{{server}} read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_server_write_bytes_total{group=~\"$group\"}[5m])",
+          "expr": "rate(ssv_server_write_bytes_total{group=~\"$group\"}[1m])",
           "legendFormat": "{{server}} write"
         }
       ],
@@ -938,7 +938,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(rate(ssv_pool_read_time_seconds_total{group=~\"$group\"}[5m]) + rate(ssv_pool_write_time_seconds_total{group=~\"$group\"}[5m])) / clamp_min(rate(ssv_pool_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[5m]), 1)",
+          "expr": "(rate(ssv_pool_read_time_seconds_total{group=~\"$group\"}[1m]) + rate(ssv_pool_write_time_seconds_total{group=~\"$group\"}[1m])) / clamp_min(rate(ssv_pool_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[1m]), 1)",
           "legendFormat": "{{pool}}"
         }
       ],
@@ -1076,7 +1076,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_virtual_disk_write_ops_total{group=~\"$group\"}[5m]))",
+          "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_virtual_disk_write_ops_total{group=~\"$group\"}[1m]))",
           "legendFormat": "{{vdisk}}",
           "instant": true
         }
