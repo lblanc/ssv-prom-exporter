@@ -295,7 +295,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(ssv_server_read_ops_total{group=~\"$group\"}[10s])) + sum(rate(ssv_server_write_ops_total{group=~\"$group\"}[10s]))"
+          "expr": "sum(rate(ssv_server_read_ops_total{group=~\"$group\"}[$__rate_interval])) + sum(rate(ssv_server_write_ops_total{group=~\"$group\"}[$__rate_interval]))"
         }
       ],
       "options": {
@@ -338,7 +338,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(ssv_server_read_bytes_total{group=~\"$group\"}[10s])) + sum(rate(ssv_server_write_bytes_total{group=~\"$group\"}[10s]))"
+          "expr": "sum(rate(ssv_server_read_bytes_total{group=~\"$group\"}[$__rate_interval])) + sum(rate(ssv_server_write_bytes_total{group=~\"$group\"}[$__rate_interval]))"
         }
       ],
       "options": {
@@ -381,7 +381,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(sum(rate(ssv_pool_io_time_seconds_total{group=~\"$group\"}[10s]))) / (sum(rate(ssv_pool_read_ops_total{group=~\"$group\"}[10s])) + sum(rate(ssv_pool_write_ops_total{group=~\"$group\"}[10s])))"
+          "expr": "(sum(rate(ssv_pool_io_time_seconds_total{group=~\"$group\"}[$__rate_interval]))) / (sum(rate(ssv_pool_read_ops_total{group=~\"$group\"}[$__rate_interval])) + sum(rate(ssv_pool_write_ops_total{group=~\"$group\"}[$__rate_interval])))"
         }
       ],
       "options": {
@@ -579,7 +579,7 @@
         },
         {
           "refId": "IOPS",
-          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_server_write_ops_total{group=~\"$group\"}[10s])",
+          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_server_write_ops_total{group=~\"$group\"}[$__rate_interval])",
           "format": "table",
           "instant": true
         }
@@ -711,7 +711,7 @@
         },
         {
           "refId": "IOPS",
-          "expr": "rate(ssv_pool_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[10s])",
+          "expr": "rate(ssv_pool_read_ops_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[$__rate_interval])",
           "format": "table",
           "instant": true
         }
@@ -904,12 +904,12 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[10s])",
+          "expr": "rate(ssv_server_read_ops_total{group=~\"$group\"}[$__rate_interval])",
           "legendFormat": "{{server}} read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_server_write_ops_total{group=~\"$group\"}[10s])",
+          "expr": "rate(ssv_server_write_ops_total{group=~\"$group\"}[$__rate_interval])",
           "legendFormat": "{{server}} write"
         }
       ],
@@ -958,12 +958,12 @@
       "targets": [
         {
           "refId": "R",
-          "expr": "rate(ssv_server_read_bytes_total{group=~\"$group\"}[10s])",
+          "expr": "rate(ssv_server_read_bytes_total{group=~\"$group\"}[$__rate_interval])",
           "legendFormat": "{{server}} read"
         },
         {
           "refId": "W",
-          "expr": "rate(ssv_server_write_bytes_total{group=~\"$group\"}[10s])",
+          "expr": "rate(ssv_server_write_bytes_total{group=~\"$group\"}[$__rate_interval])",
           "legendFormat": "{{server}} write"
         }
       ],
@@ -1013,7 +1013,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "(rate(ssv_pool_read_time_seconds_total{group=~\"$group\"}[10s]) + rate(ssv_pool_write_time_seconds_total{group=~\"$group\"}[10s])) / clamp_min(rate(ssv_pool_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[10s]), 1)",
+          "expr": "(rate(ssv_pool_read_time_seconds_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_pool_write_time_seconds_total{group=~\"$group\"}[$__rate_interval])) / clamp_min(rate(ssv_pool_read_ops_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_pool_write_ops_total{group=~\"$group\"}[$__rate_interval]), 1)",
           "legendFormat": "{{pool}}"
         }
       ],
@@ -1151,7 +1151,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total{group=~\"$group\"}[10s]) + rate(ssv_virtual_disk_write_ops_total{group=~\"$group\"}[10s]))",
+          "expr": "topk(10, rate(ssv_virtual_disk_read_ops_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_virtual_disk_write_ops_total{group=~\"$group\"}[$__rate_interval]))",
           "legendFormat": "{{vdisk}}",
           "instant": true
         }
