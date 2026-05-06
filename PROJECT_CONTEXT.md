@@ -50,7 +50,23 @@ Feature-complete v0: three collectors + REST failover + Windows
 service mode all in. Next round of polish is config + retry + CI.
 
 ## Remaining tasks
-(none for now)
+Coverage gaps surfaced by the Grafana dashboards (the inspiration
+boards had panels we couldn't fill from current metrics). Expose:
+- [ ] **Physical disks** (`/physicalDisks` + `/performance/{id}`):
+      `ssv_physical_disk_{status,size_bytes,...}` and IOPS / latency
+      counters mirroring the server/pool/vdisk shape.
+- [ ] **SCSI ports** (`/ports` + `/performance/{id}`): TotalReads /
+      TotalWrites / TotalOperations rates per port (front-end /
+      mirror role).
+- [ ] **Hosts (initiators)** as first-class objects: `/hosts` for
+      inventory + `/performance/{id}` for per-host IOPS / bandwidth /
+      max-IO-size, instead of relying on the global `Initiator*`
+      counters baked into the server perf snapshot.
+- [ ] **Pool extras**: `EstimatedDepletionTime` (gauge, seconds),
+      `MaxTierNumber`, `TierReservedPct`, `InSharedMode` (info
+      labels on `ssv_pool_info` if we add one).
+- [ ] **VDisk allocation %** if the field exists on the REST shape
+      (the InfluxDB inspiration uses `PercentAllocated`).
 
 ## Completed
 - 2026-05-05 — REST API discovery against PSP 20 lab; all key endpoints
@@ -105,6 +121,13 @@ service mode all in. Next round of polish is config + retry + CI.
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Test stack under `deploy/` with docker-compose
+  (Prometheus 3.5 + Grafana 12), datasource + 3 dashboards
+  (Overview / Servers / Storage) provisioned. Prometheus config is a
+  template substituted at container start with `EXPORTER_TARGET` from
+  `.env`. Anonymous Viewer enabled in Grafana for fast read-only
+  access. Validated against the lab at `10.12.110.11:9876` —
+  `ssv_up=1` on all three collectors.
 - 2026-05-06 — MSI packaging + GitHub Releases. New `packaging/windows/installer.wxs`
   (per-machine install, drops exe + LICENSE + config.example.yaml under
   Program Files, creates empty ProgramData dir, no service registration);

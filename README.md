@@ -219,6 +219,35 @@ rate(ssv_server_class_io_operations_total[5m])
 State integers are exposed as-is — the SSV vendor enum mapping is not
 documented in the REST help.
 
+## Test stack (Prometheus + Grafana)
+
+A docker-compose stack ships under [`deploy/`](deploy/) for poking at
+the exporter end-to-end on a Linux host. It runs Prometheus 3 +
+Grafana 12 with three dashboards pre-provisioned.
+
+```sh
+cd deploy
+cp .env.example .env
+$EDITOR .env          # set EXPORTER_TARGET to <windows-host>:9876
+docker compose up -d
+```
+
+Then:
+
+- **Grafana** — http://localhost:3000 (anonymous Viewer is enabled,
+  no login needed; admin password is `GF_ADMIN_PASSWORD` from `.env`
+  for editing). The **SSV** folder holds three dashboards:
+  - **Overview** — global health (alerts, server states, capacity
+    rollups, total IOPS, top-N noisy vdisks).
+  - **Servers** — per-server, repeating: state, cache, IOPS &
+    throughput, IOPS & latency broken down by IO pipeline class.
+  - **Storage** — per-pool (status, capacity allocation pie, IOPS,
+    read/write latency) and per-vdisk (top-N by IOPS).
+- **Prometheus** — http://localhost:9090.
+
+Stop the stack with `docker compose down`. Add `-v` to also wipe the
+TSDB and Grafana state.
+
 ## Configuration file
 
 Pass `-config <path>` to load settings from a YAML file. See

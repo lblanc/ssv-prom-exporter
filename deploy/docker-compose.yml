@@ -1,0 +1,64 @@
+# Test stack for ssv-prom-exporter: Prometheus + Grafana with the
+# dashboards pre-provisioned. Start with:
+#
+#   cd deploy && cp .env.example .env && $EDITOR .env
+#   docker compose up -d
+#
+# Grafana: http://<host>:3000 (anonymous Viewer enabled by default;
+#                              admin / EXPORTER_TARGET-set password to edit)
+# Prometheus: http://<host>:9090
+#
+# The exporter target is set via EXPORTER_TARGET in .env. It must be
+# reachable from inside the prometheus container — usually a windows
+# host on the LAN or via Netbird. host.docker.internal works on Linux
+# Docker thanks to the extra_hosts mapping below.
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      # The mounted file is a template; the entrypoint below copies it
+      # to a writable location and substitutes __EXPORTER_TARGET__ before
+      # launching prometheus.
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.tpl:ro
+      - prometheus-data:/prometheus
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sed "s|__EXPORTER_TARGET__|${EXPORTER_TARGET:-host.docker.internal:9876}|g" \
+            /etc/prometheus/prometheus.yml.tpl > /tmp/prometheus.yml
+        exec /bin/prometheus \
+            --config.file=/tmp/prometheus.yml \
+            --storage.tsdb.path=/prometheus \
+            --storage.tsdb.retention.time=15d \
+            --web.enable-lifecycle
+    environment:
+      EXPORTER_TARGET: ${EXPORTER_TARGET:-host.docker.internal:9876}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ssv-overview.json
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:
