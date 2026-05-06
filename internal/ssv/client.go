@@ -420,6 +420,11 @@ func (c *Client) VirtualDisks(ctx context.Context) ([]VirtualDisk, error) {
 	return v, c.Get(ctx, "virtualDisks", &v)
 }
 
+func (c *Client) Hosts(ctx context.Context) ([]Host, error) {
+	var v []Host
+	return v, c.Get(ctx, "hosts", &v)
+}
+
 func (c *Client) Monitors(ctx context.Context) ([]Monitor, error) {
 	var v []Monitor
 	return v, c.Get(ctx, "monitors", &v)

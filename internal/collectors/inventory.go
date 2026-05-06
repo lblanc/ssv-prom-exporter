@@ -53,6 +53,12 @@ type Inventory struct {
 	vdiskSize    *prometheus.Desc
 	vdiskType    *prometheus.Desc
 	vdiskOffline *prometheus.Desc
+
+	hostState      *prometheus.Desc
+	hostConnState  *prometheus.Desc
+	hostMaint      *prometheus.Desc
+	hostType       *prometheus.Desc
+	hostInfo       *prometheus.Desc
 }
 
 func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
@@ -63,6 +69,7 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 	serverLabels := []string{"server_id", "server", "group_id"}
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
+	hostLabels := []string{"host_id", "host"}
 
 	return &Inventory{
 		client: client,
@@ -94,6 +101,12 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 		vdiskSize:    desc("virtual_disk_size_bytes", "Virtual disk size.", vdiskLabels),
 		vdiskType:    desc("virtual_disk_type", "Virtual disk type (numeric, vendor-defined).", vdiskLabels),
 		vdiskOffline: desc("virtual_disk_offline", "1 if the virtual disk is offline.", vdiskLabels),
+
+		hostState:     desc("host_state", "Host state (numeric, vendor-defined).", hostLabels),
+		hostConnState: desc("host_connection_state", "Host connection state (numeric, vendor-defined).", hostLabels),
+		hostMaint:     desc("host_maintenance_mode", "1 if the host is in maintenance mode.", hostLabels),
+		hostType:      desc("host_type", "Host type (numeric, vendor-defined).", hostLabels),
+		hostInfo:      desc("host_info", "Static host information (always 1).", []string{"host_id", "host", "host_name", "description", "version"}),
 	}
 }
 
@@ -123,6 +136,11 @@ func (c *Inventory) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.vdiskSize
 	ch <- c.vdiskType
 	ch <- c.vdiskOffline
+	ch <- c.hostState
+	ch <- c.hostConnState
+	ch <- c.hostMaint
+	ch <- c.hostType
+	ch <- c.hostInfo
 }
 
 func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Metric) bool {
@@ -133,9 +151,10 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 	servers, serr := c.client.Servers(ctx)
 	pools, perr := c.client.Pools(ctx)
 	vdisks, verr := c.client.VirtualDisks(ctx)
+	hosts, herr := c.client.Hosts(ctx)
 
 	ok := true
-	for _, e := range []error{gerr, serr, perr, verr} {
+	for _, e := range []error{gerr, serr, perr, verr, herr} {
 		if e != nil {
 			c.log.Error("ssv inventory scrape error", "err", e)
 			ok = false
@@ -192,6 +211,20 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		ch <- prometheus.MustNewConstMetric(c.vdiskSize, prometheus.GaugeValue, float64(v.Size.Value), labels...)
 		ch <- prometheus.MustNewConstMetric(c.vdiskType, prometheus.GaugeValue, float64(v.Type), labels...)
 		ch <- prometheus.MustNewConstMetric(c.vdiskOffline, prometheus.GaugeValue, btof(v.Offline), labels...)
+	}
+
+	for _, h := range hosts {
+		if h.Internal {
+			// SSV creates internal pseudo-hosts for its own bookkeeping —
+			// skip them so dashboards focus on real SAN clients.
+			continue
+		}
+		labels := []string{h.ID, h.Caption}
+		ch <- prometheus.MustNewConstMetric(c.hostState, prometheus.GaugeValue, float64(h.State), labels...)
+		ch <- prometheus.MustNewConstMetric(c.hostConnState, prometheus.GaugeValue, float64(h.ConnectionState), labels...)
+		ch <- prometheus.MustNewConstMetric(c.hostMaint, prometheus.GaugeValue, btof(h.InMaintenanceMode), labels...)
+		ch <- prometheus.MustNewConstMetric(c.hostType, prometheus.GaugeValue, float64(h.Type), labels...)
+		ch <- prometheus.MustNewConstMetric(c.hostInfo, prometheus.GaugeValue, 1, h.ID, h.Caption, h.HostName, h.Description, h.Version)
 	}
 
 	return ok

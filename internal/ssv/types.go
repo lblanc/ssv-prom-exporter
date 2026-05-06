@@ -70,6 +70,27 @@ type VirtualDisk struct {
 	IsServed   bool   `json:"IsServed"`
 }
 
+// Host is the subset of /hosts fields surfaced as metrics.
+//
+// Hosts are the SAN clients (vSphere ESXi, Hyper-V, etc.) consuming
+// virtual disks. State / ConnectionState / Type are vendor-defined
+// numeric enums and are exposed as-is (mapping is not in the REST
+// help). Description usually carries the OS / hypervisor build
+// string ("VMware ESXi 8.0.3 build-24585383").
+type Host struct {
+	ID                string `json:"Id"`
+	Caption           string `json:"Caption"`
+	HostName          string `json:"HostName"`
+	ExtendedCaption   string `json:"ExtendedCaption"`
+	Description       string `json:"Description"`
+	Version           string `json:"Version"`
+	State             int    `json:"State"`
+	ConnectionState   int    `json:"ConnectionState"`
+	Type              int    `json:"Type"`
+	InMaintenanceMode bool   `json:"InMaintenanceMode"`
+	Internal          bool   `json:"Internal"`
+}
+
 // Monitor is the subset of /monitors fields surfaced as metrics.
 //
 // State is vendor-defined; in the PSP 20 lab we observe values 1, 2 and 4

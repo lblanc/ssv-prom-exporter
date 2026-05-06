@@ -58,10 +58,6 @@ boards had panels we couldn't fill from current metrics). Expose:
 - [ ] **SCSI ports** (`/ports` + `/performance/{id}`): TotalReads /
       TotalWrites / TotalOperations rates per port (front-end /
       mirror role).
-- [ ] **Hosts (initiators)** as first-class objects: `/hosts` for
-      inventory + `/performance/{id}` for per-host IOPS / bandwidth /
-      max-IO-size, instead of relying on the global `Initiator*`
-      counters baked into the server perf snapshot.
 - [ ] **Pool extras**: `EstimatedDepletionTime` (gauge, seconds),
       `MaxTierNumber`, `TierReservedPct`, `InSharedMode` (info
       labels on `ssv_pool_info` if we add one).
@@ -121,6 +117,16 @@ boards had panels we couldn't fill from current metrics). Expose:
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Hosts (SAN-client / initiator) collector. New
+  `ssv.Host` type + `client.Hosts()` against `/hosts`. Inventory
+  collector emits `ssv_host_state`, `ssv_host_connection_state`,
+  `ssv_host_maintenance_mode`, `ssv_host_type`, `ssv_host_info`
+  (host_name / description / version labels). Performance collector
+  fans out `/performance/{host-id}` for `ssv_host_{read,write}_{ops,bytes}_total`,
+  `ssv_host_provisioned_bytes`, `ssv_host_max_{read,write,op}_size_bytes`.
+  Hosts flagged Internal=true are skipped (SSV bookkeeping pseudo-hosts).
+  New Grafana dashboard `ssv-hosts.json` (inventory table + IOPS /
+  bandwidth time-series + IO-size + provisioning bargauge).
 - 2026-05-06 — Multi-group test stack + dashboards. Prometheus
   config is now generated at container start by
   `deploy/prometheus/gen-config.sh` from

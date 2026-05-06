@@ -25,6 +25,7 @@ type Performance struct {
 	serverMappings []perfMapping
 	poolMappings   []perfMapping
 	vdiskMappings  []perfMapping
+	hostMappings   []perfMapping
 }
 
 // perfMapping links a SSV counter name to the Prometheus desc and value
@@ -61,6 +62,7 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 	serverClassLabels := append(append([]string{}, serverLabels...), "class")
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
+	hostLabels := []string{"host_id", "host"}
 
 	c := &Performance{
 		client:  client,
@@ -127,6 +129,16 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 		{key: "TotalOperationsTime", desc: desc("virtual_disk_io_time_seconds_total", "Cumulative time spent on IO operations on this virtual disk.", vdiskLabels), valType: prometheus.CounterValue, scale: timeScale},
 		{key: "MaxReadWriteTime", desc: desc("virtual_disk_io_max_time_seconds", "Peak IO duration recently observed on this virtual disk.", vdiskLabels), valType: prometheus.GaugeValue, scale: timeScale},
 	}
+	c.hostMappings = []perfMapping{
+		{key: "TotalBytesRead", desc: desc("host_read_bytes_total", "Cumulative bytes read by this SAN client.", hostLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesWritten", desc: desc("host_write_bytes_total", "Cumulative bytes written by this SAN client.", hostLabels), valType: prometheus.CounterValue},
+		{key: "TotalReads", desc: desc("host_read_ops_total", "Cumulative read operations issued by this SAN client.", hostLabels), valType: prometheus.CounterValue},
+		{key: "TotalWrites", desc: desc("host_write_ops_total", "Cumulative write operations issued by this SAN client.", hostLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesProvisioned", desc: desc("host_provisioned_bytes", "Provisioned (mapped) capacity exposed to this SAN client.", hostLabels), valType: prometheus.GaugeValue},
+		{key: "MaxReadSize", desc: desc("host_max_read_size_bytes", "Peak read IO size observed for this SAN client.", hostLabels), valType: prometheus.GaugeValue},
+		{key: "MaxWriteSize", desc: desc("host_max_write_size_bytes", "Peak write IO size observed for this SAN client.", hostLabels), valType: prometheus.GaugeValue},
+		{key: "MaxOperationSize", desc: desc("host_max_op_size_bytes", "Peak IO size (read or write) observed for this SAN client.", hostLabels), valType: prometheus.GaugeValue},
+	}
 	return c
 }
 
@@ -140,6 +152,9 @@ func (c *Performance) Describe(ch chan<- *prometheus.Desc) {
 		ch <- m.desc
 	}
 	for _, m := range c.vdiskMappings {
+		ch <- m.desc
+	}
+	for _, m := range c.hostMappings {
 		ch <- m.desc
 	}
 }
@@ -157,12 +172,13 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 	servers, sErr := c.client.Servers(ctx)
 	pools, pErr := c.client.Pools(ctx)
 	vdisks, vErr := c.client.VirtualDisks(ctx)
-	if err := errors.Join(sErr, pErr, vErr); err != nil {
+	hosts, hErr := c.client.Hosts(ctx)
+	if err := errors.Join(sErr, pErr, vErr, hErr); err != nil {
 		c.log.Error("ssv perf: inventory lookup failed", "err", err)
 		return false
 	}
 
-	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks))
+	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks)+len(hosts))
 	for _, s := range servers {
 		jobs = append(jobs, perfJob{
 			id:       s.ID,
@@ -182,6 +198,16 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 			id:       v.ID,
 			mappings: c.vdiskMappings,
 			labels:   []string{v.ID, v.Caption},
+		})
+	}
+	for _, h := range hosts {
+		if h.Internal {
+			continue
+		}
+		jobs = append(jobs, perfJob{
+			id:       h.ID,
+			mappings: c.hostMappings,
+			labels:   []string{h.ID, h.Caption},
 		})
 	}
 

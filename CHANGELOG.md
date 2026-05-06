@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0] - 2026-05-06
+
+### Added
+- **Hosts (SAN clients / initiators)** as first-class objects.
+  - Inventory collector emits `ssv_host_{state,connection_state,
+    maintenance_mode,type,info}` (with labels host_name / description
+    / version). Hosts flagged `Internal=true` by SSV (pseudo-hosts
+    used for bookkeeping) are skipped.
+  - Performance collector fans out `/performance/{host-id}` per host
+    and emits `ssv_host_{read,write}_{ops,bytes}_total`,
+    `ssv_host_provisioned_bytes`, and three peak gauges
+    `ssv_host_max_{read,write,op}_size_bytes`.
+- New Grafana dashboard **SSV — Hosts** (`ssv-hosts.json`):
+  inventory table (state / maint / IOPS / B/s), per-host IOPS &
+  bandwidth time-series, peak IO size, and a provisioned-capacity
+  bargauge. Honors the multi-group `Group` filter like the others.
+
+### Notes
+- Per-host *latency* is not exposed because SSV's REST does not
+  publish time counters under host objects.
+
+[v0.2.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.2.0
+
 ## [v0.1.3] - 2026-05-06
 
 ### Added
