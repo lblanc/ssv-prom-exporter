@@ -16,9 +16,9 @@ TARGETS="${TARGETS:-lab=host.docker.internal:9876}"
 
 cat > /tmp/prometheus.yml <<HEAD
 global:
-  scrape_interval: 30s
-  evaluation_interval: 30s
-  scrape_timeout: 15s
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  scrape_timeout: 4s
   external_labels:
     monitor: ssv-prom-exporter-test
 
