@@ -11,6 +11,24 @@ performance metrics on `/metrics`. It runs anywhere on the network with
 TCP/443 reachability to a SSV management server — it does **not** need
 to run on the SSV host itself.
 
+## Contents
+
+- [Features](#features)
+- [Install](#install)
+  - [From a GitHub Release (recommended)](#from-a-github-release-recommended)
+  - [From source](#from-source)
+- [Uninstall](#uninstall)
+- [Usage](#usage)
+- [Configuration file](#configuration-file)
+- [Exposed metrics](#exposed-metrics)
+- [Test stack (Prometheus + Grafana)](#test-stack-prometheus--grafana)
+- [High availability / failover](#high-availability--failover)
+- [Windows service](#windows-service)
+- [Requirements](#requirements)
+- [Notes / gotchas](#notes--gotchas)
+- [Cutting a release](#cutting-a-release)
+- [License](#license)
+
 ## Features
 
 - Three signal tiers, each with its own refresh cadence and
@@ -80,7 +98,15 @@ icacls "C:\ProgramData\ssv-prom-exporter\config.yaml" /inheritance:r ^
 sc start ssv-prom-exporter
 ```
 
-### Uninstall
+### From source
+
+```sh
+make build           # native (the host's GOOS/GOARCH)
+make build-windows   # cross-compile to windows/amd64 (CGO_ENABLED=0)
+make msi             # build the MSI (requires `wixl`, Debian package)
+```
+
+## Uninstall
 
 The service registration is independent from the MSI (it's done by
 `-install` after the MSI ran), so it must be removed first. From an
@@ -109,14 +135,6 @@ Get-WmiObject Win32_Product `
   Select-Object IdentifyingNumber
 
 msiexec /x {<the-ProductCode-from-above>} /qn
-```
-
-### From source
-
-```sh
-make build           # native (the host's GOOS/GOARCH)
-make build-windows   # cross-compile to windows/amd64 (CGO_ENABLED=0)
-make msi             # build the MSI (requires `wixl`, Debian package)
 ```
 
 ## Usage
@@ -160,6 +178,22 @@ One-shot probe (raw JSON of `/serverGroups`):
 SSV_URL=https://10.0.0.1 SSV_USER=administrator SSV_PASS='***' \
   ./bin/ssv-prom-exporter -ping
 ```
+
+## Configuration file
+
+Pass `-config <path>` to load settings from a YAML file. See
+[`config.example.yaml`](config.example.yaml) for the full schema.
+Any field can be overridden by an explicit command-line flag (or its
+matching env var); unset fields fall through to the binary's defaults.
+
+Precedence:
+
+```
+explicit flag  >  env var (flag default)  >  YAML  >  built-in default
+```
+
+Unknown YAML keys are rejected at load time so a typo doesn't silently
+leave a setting at its default.
 
 ## Exposed metrics
 
@@ -314,22 +348,6 @@ Then:
 Stop the stack with `docker compose down`. Add `-v` to also wipe the
 TSDB and Grafana state.
 
-## Configuration file
-
-Pass `-config <path>` to load settings from a YAML file. See
-[`config.example.yaml`](config.example.yaml) for the full schema.
-Any field can be overridden by an explicit command-line flag (or its
-matching env var); unset fields fall through to the binary's defaults.
-
-Precedence:
-
-```
-explicit flag  >  env var (flag default)  >  YAML  >  built-in default
-```
-
-Unknown YAML keys are rejected at load time so a typo doesn't silently
-leave a setting at its default.
-
 ## High availability / failover
 
 The exporter falls over to a backup management server when the primary
@@ -415,6 +433,31 @@ ssv-prom-exporter.exe -uninstall
 > `sc qc <name>`. Use the YAML config workflow above to keep `-pass`
 > out of that surface.
 
+## Requirements
+
+- DataCore SANsymphony **PSP 20+** (older versions may work, untested).
+- Network reachability from the exporter host to the SSV management
+  server on TCP/443.
+- A Windows or Linux build host (Go 1.26+). MSI builds additionally
+  require the `wixl` Debian package (`apt install wixl`).
+
+## Notes / gotchas
+
+- The `ServerHost` HTTP header is mandatory on every REST call; missing
+  it returns `HTTP 400` with `ErrorCode 9`. The value must be the IP
+  being hit — hostnames are rejected with HTTP 400 even when they
+  resolve to a valid mgmt server.
+- Some SSV IDs contain colons and curly braces (notably pool IDs of the
+  form `<server-uuid>:{<pool-uuid>}`); they must be path-escaped before
+  being interpolated into URLs.
+- `/performance/{id}` returns an array containing a single snapshot —
+  unwrap `[0]`.
+- SSV's REST cache is 30 s by default (`RequestExpirationTime` in
+  `Web.config` on the mgmt server). Faster scrapes will see stale data.
+- SSV `*Time` perf counters are exposed in milliseconds; the exporter
+  multiplies by `1e-3` so all latency series are in seconds (Prometheus
+  convention).
+
 ## Cutting a release
 
 Releases are produced by GitHub Actions when an annotated tag matching
@@ -441,31 +484,6 @@ carrying the windows binary, the MSI, and `SHA256SUMS`.
 Existing releases can be regenerated (e.g. to refresh the body after a
 `CHANGELOG.md` edit) by running the workflow manually with
 `workflow_dispatch` and the existing tag as input.
-
-## Requirements
-
-- DataCore SANsymphony **PSP 20+** (older versions may work, untested).
-- Network reachability from the exporter host to the SSV management
-  server on TCP/443.
-- A Windows or Linux build host (Go 1.26+). MSI builds additionally
-  require the `wixl` Debian package (`apt install wixl`).
-
-## Notes / gotchas
-
-- The `ServerHost` HTTP header is mandatory on every REST call; missing
-  it returns `HTTP 400` with `ErrorCode 9`. The value must be the IP
-  being hit — hostnames are rejected with HTTP 400 even when they
-  resolve to a valid mgmt server.
-- Some SSV IDs contain colons and curly braces (notably pool IDs of the
-  form `<server-uuid>:{<pool-uuid>}`); they must be path-escaped before
-  being interpolated into URLs.
-- `/performance/{id}` returns an array containing a single snapshot —
-  unwrap `[0]`.
-- SSV's REST cache is 30 s by default (`RequestExpirationTime` in
-  `Web.config` on the mgmt server). Faster scrapes will see stale data.
-- SSV `*Time` perf counters are exposed in milliseconds; the exporter
-  multiplies by `1e-3` so all latency series are in seconds (Prometheus
-  convention).
 
 ## License
 
