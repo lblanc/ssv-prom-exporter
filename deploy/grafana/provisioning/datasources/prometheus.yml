@@ -9,5 +9,8 @@ datasources:
     isDefault: true
     editable: false
     jsonData:
-      timeInterval: 30s
+      # Must match (or be a multiple of) the Prometheus scrape_interval
+      # from gen-config.sh — Grafana uses it as the minimum step when
+      # building $__interval and the API `step` param.
+      timeInterval: 5s
       httpMethod: POST
