@@ -521,6 +521,77 @@
           }
         }
       }
+    },
+    {
+      "type": "row",
+      "id": 500,
+      "title": "Connections (ports)",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 38}
+    },
+    {
+      "type": "table",
+      "id": 40,
+      "title": "Ports of the selected host(s)",
+      "description": "Each port belonging to the host(s) selected above. Joined to ssv_host_info via host_id.",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 39},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "INFO", "expr": "ssv_port_info{group=~\"$group\"} and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "CONN", "expr": "ssv_port_connected{group=~\"$group\"} and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "IOPS", "expr": "(rate(ssv_port_read_ops_total{group=~\"$group\"}[5m]) + rate(ssv_port_write_ops_total{group=~\"$group\"}[5m])) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "BPS", "expr": "(rate(ssv_port_read_bytes_total{group=~\"$group\"}[5m]) + rate(ssv_port_write_bytes_total{group=~\"$group\"}[5m])) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "filterFieldsByName", "options": {"include": {"names": ["port", "host_id", "port_type", "port_mode", "port_name", "Value #CONN", "Value #IOPS", "Value #BPS"]}}},
+        {"id": "merge"},
+        {"id": "organize", "options": {"renameByName": {"port": "Port", "host_id": "HostId", "port_type": "Type", "port_mode": "Mode", "port_name": "PortName", "Value #CONN": "Conn", "Value #IOPS": "IOPS", "Value #BPS": "B/s"}}}
+      ],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Conn"},
+            "properties": [
+              {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "no", "color": "red", "index": 0}, "1": {"text": "yes", "color": "green", "index": 1}}}]},
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Type"},
+            "properties": [{"id": "mappings", "value": [{"type": "value", "options": {"3": {"text": "iSCSI", "index": 0}, "4": {"text": "FC", "index": 1}}}]}]
+          },
+          {"matcher": {"id": "byName", "options": "IOPS"}, "properties": [{"id": "unit", "value": "iops"}, {"id": "decimals", "value": 0}]},
+          {"matcher": {"id": "byName", "options": "B/s"}, "properties": [{"id": "unit", "value": "binBps"}, {"id": "decimals", "value": 1}]}
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 41,
+      "title": "IOPS per port",
+      "description": "Per-port IOPS for ports belonging to the selected host(s).",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 47},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "R", "expr": "rate(ssv_port_read_ops_total{group=~\"$group\"}[5m]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} read"},
+        {"refId": "W", "expr": "rate(ssv_port_write_ops_total{group=~\"$group\"}[5m]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} write"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
+    },
+    {
+      "type": "timeseries",
+      "id": 42,
+      "title": "Bandwidth per port",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 47},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "R", "expr": "rate(ssv_port_read_bytes_total{group=~\"$group\"}[5m]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} read"},
+        {"refId": "W", "expr": "rate(ssv_port_write_bytes_total{group=~\"$group\"}[5m]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} write"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "binBps", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
     }
   ],
   "refresh": "30s",
