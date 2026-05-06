@@ -48,6 +48,8 @@ func main() {
 		ping        = flag.Bool("ping", false, "Probe /serverGroups and print the response, then exit")
 		listen      = flag.String("listen", "", "Run as Prometheus exporter, listen on this address (e.g. :9876)")
 		perfWorkers = flag.Int("perf-workers", 8, "Number of concurrent /performance/{id} calls during a scrape")
+		retries     = flag.Int("retries", 2, "Retries on transient SSV failures after every endpoint has been tried once. 0 disables retry.")
+		retryDelay  = flag.Duration("retry-delay", 200*time.Millisecond, "Initial backoff between retries; doubled each attempt (capped at 2s) with up to 50% jitter")
 		install     = flag.Bool("install", false, "Install as a Windows service and exit (Windows only)")
 		uninstall   = flag.Bool("uninstall", false, "Uninstall the Windows service and exit (Windows only)")
 		svcName     = flag.String("svc-name", "ssv-prom-exporter", "Windows service name")
@@ -70,6 +72,7 @@ func main() {
 		}
 		mergeConfig(yc, explicit, baseURL, user, pass, serverHost, insecure,
 			bases, backupCIDRs, listen, perfWorkers,
+			retries, retryDelay,
 			svcName, svcDisplay, svcDesc)
 	}
 
@@ -115,12 +118,14 @@ func main() {
 	}
 
 	cfg := ssv.Config{
-		BaseURL:    *baseURL,
-		Username:   *user,
-		Password:   *pass,
-		ServerHost: *serverHost,
-		Insecure:   *insecure,
-		Logger:     log,
+		BaseURL:        *baseURL,
+		Username:       *user,
+		Password:       *pass,
+		ServerHost:     *serverHost,
+		Insecure:       *insecure,
+		Logger:         log,
+		Retries:        *retries,
+		RetryBaseDelay: *retryDelay,
 	}
 	if *backupCIDRs != "" {
 		cfg.BackupCIDRs = strings.Split(*backupCIDRs, ",")
@@ -223,6 +228,7 @@ func serveExporter(ctx context.Context, log *slog.Logger, addr string, reg *prom
 func mergeConfig(yc *config.Config, explicit map[string]bool,
 	url, user, pass, host *string, insecure *bool,
 	bases, backupCIDRs, listen *string, perfWorkers *int,
+	retries *int, retryDelay *time.Duration,
 	svcName, svcDisplay, svcDesc *string,
 ) {
 	override := func(name string, target *string, yamlVal string) {
@@ -249,6 +255,12 @@ func mergeConfig(yc *config.Config, explicit map[string]bool,
 	}
 	if !explicit["perf-workers"] && yc.PerfWorkers > 0 {
 		*perfWorkers = yc.PerfWorkers
+	}
+	if !explicit["retries"] && yc.Retries != nil {
+		*retries = *yc.Retries
+	}
+	if !explicit["retry-delay"] && yc.RetryDelay > 0 {
+		*retryDelay = yc.RetryDelay
 	}
 }
 

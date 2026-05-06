@@ -160,6 +160,24 @@ install command prints a warning when `-pass` was used without
 `-config`, and the YAML config (below) is the recommended way to keep
 credentials out of `sc qc`.
 
+### Retry/backoff layered on top of failover, not per-endpoint
+Decision: `GetRaw` retries up to `Retries` additional times (default 2)
+when *every* configured endpoint has failed transiently in one pass.
+Backoff is exponential (`RetryBaseDelay`, default 200ms) doubled each
+attempt, capped at `RetryMaxDelay` (2s), with up to 50% jitter. Ctx
+cancellation aborts the sleep immediately. Non-transient errors (4xx,
+decode) short-circuit the loop.
+Rationale: per-endpoint retry would defeat the failover advantage —
+the existing loop already tries all endpoints once, so retry should
+only kick in when *all* endpoints failed transiently (typical case:
+a brief network blip or a global mgmt-server hiccup). Bounded backoff
+keeps a scrape inside Prometheus's 30s collector budget. Jitter
+avoids thundering-herd retries when several scrapes hit a flapping
+mgmt server at the same instant.
+Trade-off: a worst-case `2*15s + 200ms + 400ms` per call when every
+endpoint hangs to its `Timeout`. Acceptable: that path means a real
+outage and the scrape will be marked `ssv_up=0` regardless.
+
 ### YAML config with strict precedence and unknown-field rejection
 Decision: a `-config <path>` flag loads a YAML file whose schema lives
 in `internal/config`. Values fall through this precedence order:

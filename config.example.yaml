@@ -44,6 +44,16 @@ listen: ":9876"
 # Concurrent /performance/{id} calls per scrape (default 8).
 # perf_workers: 8
 
+# --- Retry / backoff --------------------------------------------------------
+
+# Retries on transient SSV failures (network errors, HTTP 5xx) after
+# every configured endpoint has been tried once. Set to 0 to disable.
+# retries: 2
+
+# Initial backoff between retries; doubles each attempt (capped at 2s)
+# with up to 50% jitter. Accepts Go duration syntax.
+# retry_delay: 200ms
+
 # --- Windows service metadata ----------------------------------------------
 
 # These only matter when -install is used.

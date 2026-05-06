@@ -50,7 +50,6 @@ Feature-complete v0: three collectors + REST failover + Windows
 service mode all in. Next round of polish is config + retry + CI.
 
 ## Remaining tasks
-- [ ] Retry/backoff on transient SSV failures (beyond the failover loop)
 - [ ] Verify the unit of SSV's `Total*Time` counters and add the latency
       / IO-time metrics that were skipped from the v0 perf set
 
@@ -107,6 +106,13 @@ service mode all in. Next round of polish is config + retry + CI.
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Retry/backoff on transient SSV failures
+  (`internal/ssv/client.go`). `GetRaw` now wraps the failover loop in a
+  retry loop (default 2 retries) with exponential backoff (200ms base,
+  capped at 2s) + 50% jitter, honoring ctx. Non-transient errors (4xx)
+  short-circuit. New flags `-retries` / `-retry-delay`, mirrored in
+  YAML (`retries`, `retry_delay`). Unit tests cover transient-then-OK,
+  exhaustion, 4xx short-circuit, ctx cancellation, and backoff cap.
 - 2026-05-06 — GitHub Actions CI (`.github/workflows/ci.yml`):
   single job on `ubuntu-latest` running `go vet`, `go build ./...`,
   `go test ./...`, and a `windows/amd64` cross-compile build. Triggers

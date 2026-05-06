@@ -8,7 +8,9 @@
 // The client also supports endpoint failover: it carries a list of
 // {baseURL, serverHost} pairs (the user-provided primary plus any
 // backups discovered from /servers) and falls through them in order
-// on transient errors (network failures, 5xx responses).
+// on transient errors (network failures, 5xx responses). When every
+// endpoint fails transiently, the call is retried with exponential
+// backoff (capped) honoring ctx.Done().
 package ssv
 
 import (
@@ -19,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -46,6 +49,19 @@ type Config struct {
 	// defaults to that IP's /24 — works for the typical "all mgmt IPs in
 	// one VLAN" deployment. To disable filtering, pass {"0.0.0.0/0"}.
 	BackupCIDRs []string
+
+	// Retries is the number of additional attempts after the initial one
+	// when every configured endpoint fails transiently. Total attempts =
+	// Retries + 1. Defaults to 2.
+	Retries int
+
+	// RetryBaseDelay is the first backoff sleep between retries; each
+	// subsequent retry doubles it (capped at RetryMaxDelay) with up to
+	// 50% added jitter. Defaults to 200ms.
+	RetryBaseDelay time.Duration
+
+	// RetryMaxDelay caps the per-sleep backoff. Defaults to 2s.
+	RetryMaxDelay time.Duration
 }
 
 // HTTPError is returned by the client when SSV responds with a 4xx/5xx
@@ -100,6 +116,15 @@ func New(cfg Config) (*Client, error) {
 	}
 	if cfg.Timeout == 0 {
 		cfg.Timeout = 15 * time.Second
+	}
+	if cfg.Retries < 0 {
+		cfg.Retries = 0
+	}
+	if cfg.RetryBaseDelay <= 0 {
+		cfg.RetryBaseDelay = 200 * time.Millisecond
+	}
+	if cfg.RetryMaxDelay <= 0 {
+		cfg.RetryMaxDelay = 2 * time.Second
 	}
 	if cfg.ServerHost == "" {
 		cfg.ServerHost = hostOf(cfg.BaseURL)
@@ -211,7 +236,44 @@ func (c *Client) Endpoints() []string {
 // error or HTTP 5xx) it falls through to the next endpoint, in an order
 // that starts from the last-known-good endpoint until preferredTTL
 // elapses, then from primary again.
+//
+// If every endpoint fails transiently in one pass, the call is retried
+// up to cfg.Retries additional times with exponential backoff (capped
+// at cfg.RetryMaxDelay) and ±50% jitter, honoring ctx cancellation.
+// Non-transient errors (4xx, decode failures) short-circuit the retry
+// loop because failing over or retrying would just hide a config bug.
 func (c *Client) GetRaw(ctx context.Context, path string) ([]byte, error) {
+	var lastErr error
+	for attempt := 0; attempt <= c.cfg.Retries; attempt++ {
+		body, err := c.tryAllEndpoints(ctx, path)
+		if err == nil {
+			return body, nil
+		}
+		if !isTransient(err) {
+			return nil, err
+		}
+		lastErr = err
+		if attempt == c.cfg.Retries {
+			break
+		}
+		delay := backoffDelay(c.cfg.RetryBaseDelay, c.cfg.RetryMaxDelay, attempt)
+		c.log.Debug("ssv: retry after transient failure",
+			"path", path, "attempt", attempt+1, "of", c.cfg.Retries+1, "sleep", delay, "err", err)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	return nil, lastErr
+}
+
+// tryAllEndpoints walks the endpoint list once, in tryOrder, and
+// returns the first successful body. Non-transient errors (4xx, decode)
+// short-circuit. If every endpoint fails transiently it returns a
+// wrapped "all endpoints failed" error so the retry loop can decide
+// whether to back off.
+func (c *Client) tryAllEndpoints(ctx context.Context, path string) ([]byte, error) {
 	eps, order := c.tryOrder()
 
 	var lastErr error
@@ -228,6 +290,18 @@ func (c *Client) GetRaw(ctx context.Context, path string) ([]byte, error) {
 		lastErr = err
 	}
 	return nil, fmt.Errorf("ssv: all endpoints failed: %w", lastErr)
+}
+
+// backoffDelay returns base * 2^attempt, capped at maxDelay, with up to
+// 50% added jitter to avoid thundering-herd retries when several scrapes
+// hit a flapping mgmt server simultaneously.
+func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
+	d := base << attempt
+	if d <= 0 || d > maxDelay { // overflow or cap
+		d = maxDelay
+	}
+	jitter := time.Duration(rand.Int63n(int64(d/2 + 1)))
+	return d + jitter
 }
 
 // tryOrder returns a snapshot of the endpoint list and the index order

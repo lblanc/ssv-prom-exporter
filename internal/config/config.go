@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -35,6 +36,12 @@ type Config struct {
 	BackupCIDRs []string `yaml:"backup_cidrs"`
 
 	PerfWorkers int `yaml:"perf_workers"`
+
+	// Retries is the number of retries on transient failures after every
+	// configured endpoint has been tried once. Use a *int so absent in
+	// YAML stays distinct from explicit 0 ("never retry").
+	Retries    *int          `yaml:"retries"`
+	RetryDelay time.Duration `yaml:"retry_delay"`
 
 	SvcName        string `yaml:"svc_name"`
 	SvcDisplay     string `yaml:"svc_display"`
