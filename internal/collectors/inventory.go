@@ -81,8 +81,8 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 	hostLabels := []string{"host_id", "host"}
-	portLabels := []string{"port_id", "port", "host_id"}
-	pdiskLabels := []string{"disk_id", "disk", "host_id"}
+	portLabels := []string{"port_id", "port", "host_id", "host"}
+	pdiskLabels := []string{"disk_id", "disk", "host_id", "pool", "tier"}
 	pdiskPoolLabels := []string{"disk_id", "disk", "host_id", "pool_id", "pool", "tier"}
 
 	return &Inventory{
@@ -124,7 +124,7 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 
 		portConnected: desc("port_connected", "1 if the SCSI/iSCSI port reports as connected.", portLabels),
 		portRole:      desc("port_role_capability", "Port role bitmap (vendor-defined; mixes front-end / mirror / back-end roles).", portLabels),
-		portInfo:      desc("port_info", "Static port information (always 1).", []string{"port_id", "port", "host_id", "port_name", "alias", "port_type", "port_mode"}),
+		portInfo:      desc("port_info", "Static port information (always 1).", []string{"port_id", "port", "host_id", "host", "port_name", "alias", "port_type", "port_mode"}),
 
 		pdiskStatus: desc("physical_disk_status", "Physical disk status (numeric, vendor-defined). Only Type==4 pool-member disks are exposed.", pdiskLabels),
 		pdiskSize:   desc("physical_disk_size_bytes", "Physical disk capacity.", pdiskLabels),
@@ -262,15 +262,29 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		ch <- prometheus.MustNewConstMetric(c.hostInfo, prometheus.GaugeValue, 1, h.ID, h.Caption, h.HostName, h.Description, h.Version)
 	}
 
+	// Unified host_id -> caption map. Covers external SAN clients
+	// (from /hosts) AND the SDS servers themselves (from /servers,
+	// because SDS-owned ports like "SDS122_FE1" carry the server's
+	// own UUID as HostId). Without the server side, those ports
+	// would render with an empty `host` label.
+	captionByHostID := make(map[string]string, len(hosts)+len(servers))
+	for _, h := range hosts {
+		captionByHostID[h.ID] = h.Caption
+	}
+	for _, s := range servers {
+		captionByHostID[s.ID] = s.Caption
+	}
+
 	for _, p := range ports {
 		if p.Internal {
 			continue
 		}
-		labels := []string{p.ID, p.Caption, p.HostID}
+		hostCaption := captionByHostID[p.HostID]
+		labels := []string{p.ID, p.Caption, p.HostID, hostCaption}
 		ch <- prometheus.MustNewConstMetric(c.portConnected, prometheus.GaugeValue, btof(p.Connected), labels...)
 		ch <- prometheus.MustNewConstMetric(c.portRole, prometheus.GaugeValue, float64(p.RoleCapability), labels...)
 		ch <- prometheus.MustNewConstMetric(c.portInfo, prometheus.GaugeValue, 1,
-			p.ID, p.Caption, p.HostID, p.PortName, p.Alias,
+			p.ID, p.Caption, p.HostID, hostCaption, p.PortName, p.Alias,
 			itoa(p.PortType), itoa(p.PortMode),
 		)
 	}
@@ -294,7 +308,20 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		if d.Type != 4 || d.Internal {
 			continue
 		}
-		labels := []string{d.ID, d.Caption, d.HostID}
+		// Resolve pool and tier up front so they can be carried as
+		// labels on every per-disk metric. This duplicates what
+		// ssv_physical_disk_pool exposes as a relation, but having
+		// `pool` on the perf metrics directly lets Grafana ad-hoc
+		// label filters (e.g. `pool=xxx`) match these series too.
+		var poolID, poolCaption, tier string
+		if m, ok := memberByID[d.PoolMemberID]; ok {
+			poolID = m.DiskPoolID
+			tier = itoa(m.DiskTier)
+			if p, ok := poolByID[poolID]; ok {
+				poolCaption = p.Caption
+			}
+		}
+		labels := []string{d.ID, d.Caption, d.HostID, poolCaption, tier}
 		ch <- prometheus.MustNewConstMetric(c.pdiskStatus, prometheus.GaugeValue, float64(d.DiskStatus), labels...)
 		ch <- prometheus.MustNewConstMetric(c.pdiskSize, prometheus.GaugeValue, float64(d.Size.Value), labels...)
 		ch <- prometheus.MustNewConstMetric(c.pdiskFree, prometheus.GaugeValue, float64(d.FreeSpace.Value), labels...)
@@ -306,13 +333,9 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 			boolToStr(d.IsSolidState),
 			itoa(d.BusType),
 		)
-		if m, ok := memberByID[d.PoolMemberID]; ok {
-			poolCaption := ""
-			if p, ok := poolByID[m.DiskPoolID]; ok {
-				poolCaption = p.Caption
-			}
+		if poolID != "" {
 			ch <- prometheus.MustNewConstMetric(c.pdiskPool, prometheus.GaugeValue, 1,
-				d.ID, d.Caption, d.HostID, m.DiskPoolID, poolCaption, itoa(m.DiskTier),
+				d.ID, d.Caption, d.HostID, poolID, poolCaption, tier,
 			)
 		}
 	}

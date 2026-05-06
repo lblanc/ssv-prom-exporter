@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -65,8 +66,8 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 	hostLabels := []string{"host_id", "host"}
-	portLabels := []string{"port_id", "port", "host_id"}
-	pdiskLabels := []string{"disk_id", "disk", "host_id"}
+	portLabels := []string{"port_id", "port", "host_id", "host"}
+	pdiskLabels := []string{"disk_id", "disk", "host_id", "pool", "tier"}
 
 	c := &Performance{
 		client:  client,
@@ -224,9 +225,27 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 	hosts, hErr := c.client.Hosts(ctx)
 	ports, ptErr := c.client.Ports(ctx)
 	pdisks, pdErr := c.client.PhysicalDisks(ctx)
-	if err := errors.Join(sErr, pErr, vErr, hErr, ptErr, pdErr); err != nil {
+	pmembers, pmErr := c.client.PoolMembers(ctx)
+	if err := errors.Join(sErr, pErr, vErr, hErr, ptErr, pdErr, pmErr); err != nil {
 		c.log.Error("ssv perf: inventory lookup failed", "err", err)
 		return false
+	}
+
+	// Lookup tables shared by the port and physical-disk fan-out.
+	captionByHostID := make(map[string]string, len(hosts)+len(servers))
+	for _, h := range hosts {
+		captionByHostID[h.ID] = h.Caption
+	}
+	for _, s := range servers {
+		captionByHostID[s.ID] = s.Caption
+	}
+	poolByID := make(map[string]ssv.Pool, len(pools))
+	for _, p := range pools {
+		poolByID[p.ID] = p
+	}
+	memberByID := make(map[string]ssv.PoolMember, len(pmembers))
+	for _, m := range pmembers {
+		memberByID[m.ID] = m
 	}
 
 	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks)+len(hosts)+len(ports)+len(pdisks))
@@ -268,7 +287,7 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 		jobs = append(jobs, perfJob{
 			id:       p.ID,
 			mappings: c.portMappings,
-			labels:   []string{p.ID, p.Caption, p.HostID},
+			labels:   []string{p.ID, p.Caption, p.HostID, captionByHostID[p.HostID]},
 		})
 	}
 	for _, d := range pdisks {
@@ -278,10 +297,17 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 		if d.Type != 4 || d.Internal {
 			continue
 		}
+		var poolCaption, tier string
+		if m, ok := memberByID[d.PoolMemberID]; ok {
+			tier = strconv.Itoa(m.DiskTier)
+			if p, ok := poolByID[m.DiskPoolID]; ok {
+				poolCaption = p.Caption
+			}
+		}
 		jobs = append(jobs, perfJob{
 			id:       d.ID,
 			mappings: c.pdiskMappings,
-			labels:   []string{d.ID, d.Caption, d.HostID},
+			labels:   []string{d.ID, d.Caption, d.HostID, poolCaption, tier},
 		})
 	}
 

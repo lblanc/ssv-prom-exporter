@@ -5,6 +5,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0] - 2026-05-06
+
+### Added
+- **Cross-cutting labels for Grafana ad-hoc / "Filter by label values"**.
+  Until now, filtering a dashboard by a high-level label (e.g.
+  `host=esx101...` on the Hosts board) caused the port panels to go
+  blank — `ssv_port_*` had `host_id` but no `host` label, so the
+  injected matcher returned an empty vector. Two new cross-cutting
+  labels are now stamped at emit time:
+  - `host` on `ssv_port_info`, `ssv_port_connected`,
+    `ssv_port_role_capability`, and every `ssv_port_*` perf metric.
+    Resolved from `port.HostId` against `/hosts` (external SAN
+    clients) and `/servers` (the SDS machines themselves).
+  - `pool` and `tier` on `ssv_physical_disk_*` (status / size /
+    free / info plus every perf metric). Resolved from
+    `physicalDisk.PoolMemberId` -> `/poolMembers` -> `/pools`.
+
+### Changed
+- Hosts and Storage dashboards drop the `* on(host_id) group_left(host)`
+  and `and on(disk_id) ssv_physical_disk_pool{...}` joins; queries now
+  filter directly via the new labels. Simpler PromQL, and Grafana's
+  "Filter by label values" pill now works on every panel.
+
+[v0.6.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.6.0
+
 ## [v0.5.0] - 2026-05-06
 
 ### Added
