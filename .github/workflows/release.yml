@@ -1,0 +1,71 @@
+name: Release
+
+# Triggers on annotated/lightweight tags shaped like vX.Y.Z(-suffix).
+# Builds the windows binary and the MSI, then publishes them on a new
+# GitHub Release whose name and tag both come from the pushed tag.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release from (e.g. v0.1.0). Required."
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ github.event.inputs.tag }}"
+            git checkout "$tag"
+          else
+            tag="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install wixl
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends wixl
+
+      - name: Build windows binary + MSI
+        run: make msi VERSION=${{ steps.tag.outputs.tag }}
+
+      - name: Stage release artifacts
+        id: stage
+        run: |
+          ver="${{ steps.tag.outputs.tag }}"
+          ver_bare="${ver#v}"
+          out=dist
+          mkdir -p "$out"
+          cp "bin/ssv-prom-exporter.exe" "$out/ssv-prom-exporter-${ver}-windows-amd64.exe"
+          cp "bin/ssv-prom-exporter-${ver_bare}-x64.msi" "$out/"
+          (cd "$out" && sha256sum ssv-prom-exporter-* > SHA256SUMS)
+          ls -la "$out"
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/ssv-prom-exporter-*.exe
+            dist/ssv-prom-exporter-*.msi
+            dist/SHA256SUMS

@@ -105,6 +105,14 @@ service mode all in. Next round of polish is config + retry + CI.
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — MSI packaging + GitHub Releases. New `packaging/windows/installer.wxs`
+  (per-machine install, drops exe + LICENSE + config.example.yaml under
+  Program Files, creates empty ProgramData dir, no service registration);
+  `make msi` target via `wixl` (Debian); release workflow
+  (`.github/workflows/release.yml`) triggers on `v*` tags, installs
+  wixl, builds binary + MSI, attaches them with SHA256SUMS to a
+  GitHub Release. README rewritten around feature list + install via
+  MSI; `LICENSE` (MIT) added.
 - 2026-05-06 — Latency / IO-time metrics added to the perf collector
   (`internal/collectors/performance.go`). Unit verified empirically
   against PSP 20 (Δ-time / Δ-ops fell in 0.6–2.8 → ms). New metrics:

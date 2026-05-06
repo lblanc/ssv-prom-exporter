@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX source for the ssv-prom-exporter MSI.
+
+  Built with wixl (msitools) so it cross-compiles cleanly from Linux:
+
+      wixl -D Version=0.1.0 -D Arch=x64 \
+           -o bin/ssv-prom-exporter-0.1.0-x64.msi \
+           packaging/windows/installer.wxs
+
+  Scope:
+    - Per-machine install (requires elevation).
+    - Drops ssv-prom-exporter.exe + LICENSE + config.example.yaml under
+      C:\Program Files\ssv-prom-exporter\.
+    - Creates an empty C:\ProgramData\ssv-prom-exporter\ for the admin
+      to drop the real config.yaml — never overwritten on upgrade.
+    - Does NOT register the service. The admin runs
+      `ssv-prom-exporter.exe -install -config <path>` after configuring
+      the YAML, keeping credentials out of any MSI property surface.
+
+  Stability requirements:
+    - UpgradeCode is a fixed GUID and MUST NOT change between versions
+      (it's how Windows recognises an upgrade).
+    - Component GUIDs are auto-generated from their KeyPath ("*"),
+      except the empty-folder component which carries a stable GUID.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           Name="DataCore SANsymphony Prometheus Exporter"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="Luc Blanc"
+           UpgradeCode="79d5acf1-5b46-47ce-82d6-cec7d178cdb7">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Prometheus exporter for DataCore SANsymphony"
+             Manufacturer="Luc Blanc" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <Media Id="1" Cabinet="ssv.cab" EmbedCab="yes" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLFOLDER" Name="ssv-prom-exporter">
+          <Component Id="cmpExe" Guid="*" Win64="yes">
+            <File Id="filExe"
+                  Source="bin/ssv-prom-exporter.exe"
+                  KeyPath="yes" />
+          </Component>
+          <Component Id="cmpLicense" Guid="*" Win64="yes">
+            <File Id="filLicense"
+                  Source="LICENSE"
+                  Name="LICENSE.txt"
+                  KeyPath="yes" />
+          </Component>
+          <Component Id="cmpConfigExample" Guid="*" Win64="yes">
+            <File Id="filConfigExample"
+                  Source="config.example.yaml"
+                  KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="DATAFOLDER" Name="ssv-prom-exporter">
+          <Component Id="cmpDataFolder"
+                     Guid="67b6ce72-2873-4108-9a31-64dff563ce19"
+                     Win64="yes">
+            <CreateFolder />
+            <RegistryValue Root="HKLM"
+                           Key="Software\ssv-prom-exporter"
+                           Name="DataDir"
+                           Type="string"
+                           Value="[DATAFOLDER]"
+                           KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="Main" Title="Exporter" Level="1">
+      <ComponentRef Id="cmpExe" />
+      <ComponentRef Id="cmpLicense" />
+      <ComponentRef Id="cmpConfigExample" />
+      <ComponentRef Id="cmpDataFolder" />
+    </Feature>
+  </Product>
+</Wix>
