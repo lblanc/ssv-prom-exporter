@@ -323,17 +323,29 @@ ssv-prom-exporter.exe -uninstall
 ## Cutting a release
 
 Releases are produced by GitHub Actions when an annotated tag matching
-`v*` is pushed. To cut `v0.2.0`:
+`v*` is pushed. The release body is taken from the matching section in
+[`CHANGELOG.md`](CHANGELOG.md) (auto-generated commit/PR notes are
+appended below it). To cut `v0.2.0`:
 
 ```sh
+# 1. Add a `## [v0.2.0] - YYYY-MM-DD` section to CHANGELOG.md and commit.
+$EDITOR CHANGELOG.md
+git commit -am "CHANGELOG: v0.2.0"
+git push
+
+# 2. Tag and push.
 git tag -a v0.2.0 -m "Release v0.2.0"
 git push origin v0.2.0
 ```
 
 The [release workflow](.github/workflows/release.yml) installs `wixl`,
-runs `make msi VERSION=v0.2.0`, computes SHA-256 sums, and creates a
-GitHub Release (with auto-generated notes) carrying the windows binary,
-the MSI, and `SHA256SUMS`.
+runs `make msi VERSION=v0.2.0`, computes SHA-256 sums, extracts the
+`v0.2.0` section from `CHANGELOG.md`, and creates a GitHub Release
+carrying the windows binary, the MSI, and `SHA256SUMS`.
+
+Existing releases can be regenerated (e.g. to refresh the body after a
+`CHANGELOG.md` edit) by running the workflow manually with
+`workflow_dispatch` and the existing tag as input.
 
 ## Requirements
 

@@ -59,11 +59,43 @@ jobs:
           (cd "$out" && sha256sum ssv-prom-exporter-* > SHA256SUMS)
           ls -la "$out"
 
+      # Extract the section for this tag from CHANGELOG.md and use it
+      # as the release body. Section format (Keep a Changelog):
+      #   ## [vX.Y.Z] - YYYY-MM-DD
+      #   ...content...
+      #   ## [next-version] OR end of file
+      # Falls back to a one-line note if the section is missing so the
+      # workflow doesn't fail an otherwise-good release.
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
+        run: |
+          ver="${{ steps.tag.outputs.tag }}"
+          notes_file="$RUNNER_TEMP/release-body.md"
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$ver" '
+              /^## \[/ {
+                if (p) { exit }
+                if ($0 ~ "^## \\["ver"\\]") { p = 1; next }
+              }
+              p
+            ' CHANGELOG.md > "$notes_file"
+          fi
+          if [ ! -s "$notes_file" ]; then
+            echo "No CHANGELOG.md section for $ver — falling back to a stub." >&2
+            echo "Release **$ver**. See [CHANGELOG.md](../blob/main/CHANGELOG.md)." > "$notes_file"
+          fi
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+          echo "--- release body preview ---"
+          cat "$notes_file"
+
       - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ${{ steps.tag.outputs.tag }}
+          body_path: ${{ steps.notes.outputs.path }}
+          # generate_release_notes appends the auto-generated commit /
+          # PR list under the curated body.
           generate_release_notes: true
           files: |
             dist/ssv-prom-exporter-*.exe
