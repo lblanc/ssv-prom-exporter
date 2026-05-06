@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] - 2026-05-06
+
+### Added
+- **Physical disks (pool members)** as first-class objects.
+  - New `ssv.PhysicalDisk` + `ssv.PoolMember` types and matching
+    client methods (`Client.PhysicalDisks`, `Client.PoolMembers`).
+  - Inventory collector filters `/physicalDisks` down to `Type==4`
+    (real pool members; the rest of `/physicalDisks` is mirror
+    pseudo-disks, system / boot disks, and client virtual disks)
+    and emits `ssv_physical_disk_{status,size_bytes,free_bytes,
+    info}` plus a relation gauge
+    `ssv_physical_disk_pool{disk_id, pool_id, pool, tier}` joining
+    the perf series to a pool by `disk_id`.
+  - Performance collector emits cumulative ops / bytes
+    (`physical_disk_{read,write}_{ops,bytes}_total`), per-direction
+    time (`physical_disk_{read,write,io}_time_seconds_total`,
+    note: `TotalReadsTime` / `TotalWritesTime` with the 's',
+    differs from the pool spelling), and gauges
+    `physical_disk_{io,read,write}_max_time_seconds`,
+    `physical_disk_avg_queue_length`,
+    `physical_disk_pending_commands`.
+- Storage dashboard: per-pool **Physical disks** table (disk, tier,
+  status, size, IOPS, avg latency) plus IOPS and latency
+  time-series scoped to the pool via
+  `... and on(disk_id) ssv_physical_disk_pool{pool=~"$pool"}`.
+
+[v0.4.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.4.0
+
 ## [v0.3.0] - 2026-05-06
 
 ### Added

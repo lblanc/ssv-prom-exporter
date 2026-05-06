@@ -52,9 +52,6 @@ service mode all in. Next round of polish is config + retry + CI.
 ## Remaining tasks
 Coverage gaps surfaced by the Grafana dashboards (the inspiration
 boards had panels we couldn't fill from current metrics). Expose:
-- [ ] **Physical disks** (`/physicalDisks` + `/performance/{id}`):
-      `ssv_physical_disk_{status,size_bytes,...}` and IOPS / latency
-      counters mirroring the server/pool/vdisk shape.
 - [ ] **Pool extras**: `EstimatedDepletionTime` (gauge, seconds),
       `MaxTierNumber`, `TierReservedPct`, `InSharedMode` (info
       labels on `ssv_pool_info` if we add one).
@@ -114,6 +111,19 @@ boards had panels we couldn't fill from current metrics). Expose:
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Physical disks + pool members. New `ssv.PhysicalDisk`
+  and `ssv.PoolMember` types. Inventory filters /physicalDisks down
+  to Type==4 (real pool-member disks) and emits `ssv_physical_disk_
+  {status,size_bytes,free_bytes,info}` plus a separate
+  `ssv_physical_disk_pool{disk_id, pool_id, pool, tier}` relation
+  metric (joinable on disk_id with the perf series). Performance
+  emits cumulative ops/bytes, per-direction read/write time
+  (TotalReadsTime / TotalWritesTime — note the 's', different from
+  pool's TotalReadTime), and gauges
+  `physical_disk_{io,read,write}_max_time_seconds`,
+  `physical_disk_avg_queue_length`,
+  `physical_disk_pending_commands`. Storage dashboard gains a
+  per-pool "Physical disks" table + IOPS + latency time-series.
 - 2026-05-06 — Ports (SCSI / iSCSI / FC) collector. New `ssv.Port`
   type + `client.Ports()` against `/ports`. Inventory emits
   `ssv_port_connected`, `ssv_port_role_capability` (vendor bitmap),

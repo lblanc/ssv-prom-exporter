@@ -20,3 +20,10 @@ func btof(b bool) float64 {
 }
 
 func itoa(i int) string { return strconv.Itoa(i) }
+
+func boolToStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}

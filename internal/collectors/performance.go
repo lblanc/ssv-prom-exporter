@@ -27,6 +27,7 @@ type Performance struct {
 	vdiskMappings  []perfMapping
 	hostMappings   []perfMapping
 	portMappings   []perfMapping
+	pdiskMappings  []perfMapping
 }
 
 // perfMapping links a SSV counter name to the Prometheus desc and value
@@ -65,6 +66,7 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 	hostLabels := []string{"host_id", "host"}
 	portLabels := []string{"port_id", "port", "host_id"}
+	pdiskLabels := []string{"disk_id", "disk", "host_id"}
 
 	c := &Performance{
 		client:  client,
@@ -163,6 +165,23 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 		{key: "LossOfSignalCount", desc: desc("port_loss_of_signal_total", "Cumulative loss-of-signal events.", portLabels), valType: prometheus.CounterValue},
 		{key: "LossOfSyncCount", desc: desc("port_loss_of_sync_total", "Cumulative loss-of-sync events.", portLabels), valType: prometheus.CounterValue},
 	}
+	c.pdiskMappings = []perfMapping{
+		// Note the API spelling here: physical-disk perf uses
+		// `Total{Reads,Writes}Time` (with the 's'), unlike pool perf
+		// which uses `Total{Read,Write}Time`. Easy to mis-copy.
+		{key: "TotalReads", desc: desc("physical_disk_read_ops_total", "Cumulative read operations on this physical disk.", pdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalWrites", desc: desc("physical_disk_write_ops_total", "Cumulative write operations on this physical disk.", pdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesRead", desc: desc("physical_disk_read_bytes_total", "Cumulative bytes read from this physical disk.", pdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesWritten", desc: desc("physical_disk_write_bytes_total", "Cumulative bytes written to this physical disk.", pdiskLabels), valType: prometheus.CounterValue},
+		{key: "TotalReadsTime", desc: desc("physical_disk_read_time_seconds_total", "Cumulative time spent on read operations on this physical disk.", pdiskLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "TotalWritesTime", desc: desc("physical_disk_write_time_seconds_total", "Cumulative time spent on write operations on this physical disk.", pdiskLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "TotalOperationsTime", desc: desc("physical_disk_io_time_seconds_total", "Cumulative time spent on IO operations on this physical disk.", pdiskLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "MaxReadTime", desc: desc("physical_disk_read_max_time_seconds", "Peak read duration recently observed on this physical disk.", pdiskLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		{key: "MaxWriteTime", desc: desc("physical_disk_write_max_time_seconds", "Peak write duration recently observed on this physical disk.", pdiskLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		{key: "MaxReadWriteTime", desc: desc("physical_disk_io_max_time_seconds", "Peak IO duration recently observed on this physical disk.", pdiskLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		{key: "AverageQueueLength", desc: desc("physical_disk_avg_queue_length", "Average queue length on this physical disk (gauge, vendor-defined).", pdiskLabels), valType: prometheus.GaugeValue},
+		{key: "TotalPendingCommands", desc: desc("physical_disk_pending_commands", "Pending commands currently queued on this physical disk.", pdiskLabels), valType: prometheus.GaugeValue},
+	}
 	return c
 }
 
@@ -184,6 +203,9 @@ func (c *Performance) Describe(ch chan<- *prometheus.Desc) {
 	for _, m := range c.portMappings {
 		ch <- m.desc
 	}
+	for _, m := range c.pdiskMappings {
+		ch <- m.desc
+	}
 }
 
 // perfJob is one /performance/{id} call to make.
@@ -201,12 +223,13 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 	vdisks, vErr := c.client.VirtualDisks(ctx)
 	hosts, hErr := c.client.Hosts(ctx)
 	ports, ptErr := c.client.Ports(ctx)
-	if err := errors.Join(sErr, pErr, vErr, hErr, ptErr); err != nil {
+	pdisks, pdErr := c.client.PhysicalDisks(ctx)
+	if err := errors.Join(sErr, pErr, vErr, hErr, ptErr, pdErr); err != nil {
 		c.log.Error("ssv perf: inventory lookup failed", "err", err)
 		return false
 	}
 
-	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks)+len(hosts)+len(ports))
+	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks)+len(hosts)+len(ports)+len(pdisks))
 	for _, s := range servers {
 		jobs = append(jobs, perfJob{
 			id:       s.ID,
@@ -246,6 +269,19 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 			id:       p.ID,
 			mappings: c.portMappings,
 			labels:   []string{p.ID, p.Caption, p.HostID},
+		})
+	}
+	for _, d := range pdisks {
+		// Mirror inventory.go: only Type==4 disks are pool members and
+		// have meaningful perf — the others (mirror pseudo-disks,
+		// system disks, client virtual disks) report mostly zeros.
+		if d.Type != 4 || d.Internal {
+			continue
+		}
+		jobs = append(jobs, perfJob{
+			id:       d.ID,
+			mappings: c.pdiskMappings,
+			labels:   []string{d.ID, d.Caption, d.HostID},
 		})
 	}
 

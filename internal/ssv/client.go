@@ -430,6 +430,16 @@ func (c *Client) Ports(ctx context.Context) ([]Port, error) {
 	return v, c.Get(ctx, "ports", &v)
 }
 
+func (c *Client) PhysicalDisks(ctx context.Context) ([]PhysicalDisk, error) {
+	var v []PhysicalDisk
+	return v, c.Get(ctx, "physicalDisks", &v)
+}
+
+func (c *Client) PoolMembers(ctx context.Context) ([]PoolMember, error) {
+	var v []PoolMember
+	return v, c.Get(ctx, "poolMembers", &v)
+}
+
 func (c *Client) Monitors(ctx context.Context) ([]Monitor, error) {
 	var v []Monitor
 	return v, c.Get(ctx, "monitors", &v)

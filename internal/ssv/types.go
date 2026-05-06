@@ -113,6 +113,50 @@ type Port struct {
 	Internal        bool   `json:"Internal"`
 }
 
+// PhysicalDisk is the subset of /physicalDisks fields surfaced as
+// metrics. Only entries with Type == 4 are real physical disks (the
+// rest of /physicalDisks is mirror pseudo-disks, system disks, etc.);
+// callers should filter on Type before emitting.
+type PhysicalDisk struct {
+	ID            string  `json:"Id"`
+	Caption       string  `json:"Caption"`
+	Alias         string  `json:"Alias"`
+	HostID        string  `json:"HostId"`
+	Type          int     `json:"Type"`
+	BusType       int     `json:"BusType"`
+	DiskStatus    int     `json:"DiskStatus"`
+	IsSolidState  bool    `json:"IsSolidState"`
+	IsDataCoreDisk bool   `json:"IsDataCoreDisk"`
+	Internal      bool    `json:"Internal"`
+	Size          Bytes   `json:"Size"`
+	FreeSpace     Bytes   `json:"FreeSpace"`
+	PoolMemberID  string  `json:"PoolMemberId"`
+	InquiryData   Inquiry `json:"InquiryData"`
+}
+
+// Inquiry mirrors SSV's nested SCSI inquiry block.
+type Inquiry struct {
+	Vendor   string `json:"Vendor"`
+	Product  string `json:"Product"`
+	Revision string `json:"Revision"`
+	Serial   string `json:"Serial"`
+}
+
+// PoolMember is the subset of /poolMembers surfaced as metrics. Each
+// real physical disk that backs a pool has exactly one PoolMember
+// (matched by Id ↔ PhysicalDisk.PoolMemberID); the entry carries the
+// pool ID and the tier number.
+type PoolMember struct {
+	ID          string `json:"Id"`
+	Caption     string `json:"Caption"`
+	DiskPoolID  string `json:"DiskPoolId"`
+	DiskTier    int    `json:"DiskTier"`
+	MemberState int    `json:"MemberState"`
+	IsMirrored  bool   `json:"IsMirrored"`
+	Internal    bool   `json:"Internal"`
+	Size        Bytes  `json:"Size"`
+}
+
 // Monitor is the subset of /monitors fields surfaced as metrics.
 //
 // State is vendor-defined; in the PSP 20 lab we observe values 1, 2 and 4

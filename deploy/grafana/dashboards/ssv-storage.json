@@ -622,6 +622,74 @@
       }
     },
     {
+      "type": "table",
+      "id": 50,
+      "title": "Physical disks of $pool",
+      "description": "Pool-member physical disks (Type=4 in /physicalDisks). Tier comes from /poolMembers.",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 13},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "POOL", "expr": "ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "STATUS", "expr": "ssv_physical_disk_status{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "SIZE", "expr": "ssv_physical_disk_size_bytes{group=~\"$group\"} and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "IOPS", "expr": "(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[1m])) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "LAT", "expr": "(rate(ssv_physical_disk_io_time_seconds_total{group=~\"$group\"}[1m]) / clamp_min(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[1m]), 1)) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "filterFieldsByName", "options": {"include": {"names": ["disk", "tier", "host_id", "Value #STATUS", "Value #SIZE", "Value #IOPS", "Value #LAT"]}}},
+        {"id": "merge"},
+        {"id": "organize", "options": {"renameByName": {"disk": "Disk", "tier": "Tier", "host_id": "Host", "Value #STATUS": "Status", "Value #SIZE": "Size", "Value #IOPS": "IOPS", "Value #LAT": "Avg Lat"}, "indexByName": {"disk": 0, "tier": 1, "host_id": 2, "Value #STATUS": 3, "Value #SIZE": 4, "Value #IOPS": 5, "Value #LAT": 6}}}
+      ],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Status"},
+            "properties": [
+              {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "Unknown", "color": "orange", "index": 0}, "1": {"text": "Online", "color": "green", "index": 1}, "2": {"text": "Not Ready", "color": "orange", "index": 2}, "3": {"text": "No Media", "color": "orange", "index": 3}, "4": {"text": "Offline", "color": "red", "index": 4}, "5": {"text": "Failed", "color": "red", "index": 5}, "6": {"text": "Failed", "color": "red", "index": 6}}}]},
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+            ]
+          },
+          {"matcher": {"id": "byName", "options": "Size"}, "properties": [{"id": "unit", "value": "bytes"}, {"id": "decimals", "value": 1}]},
+          {"matcher": {"id": "byName", "options": "IOPS"}, "properties": [{"id": "unit", "value": "iops"}, {"id": "decimals", "value": 0}]},
+          {"matcher": {"id": "byName", "options": "Avg Lat"}, "properties": [{"id": "unit", "value": "s"}, {"id": "decimals", "value": 4}]}
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 51,
+      "title": "Physical disk IOPS — $pool",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "R", "expr": "rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[1m]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} read"},
+        {"refId": "W", "expr": "rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[1m]) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}} write"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
+    },
+    {
+      "type": "timeseries",
+      "id": 52,
+      "title": "Physical disk latency — $pool",
+      "description": "rate(io_time)/rate(ops) per disk. Thresholds at 5 ms / 8 ms.",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "A", "expr": "(rate(ssv_physical_disk_io_time_seconds_total{group=~\"$group\"}[1m]) / clamp_min(rate(ssv_physical_disk_read_ops_total{group=~\"$group\"}[1m]) + rate(ssv_physical_disk_write_ops_total{group=~\"$group\"}[1m]), 1)) and on(disk_id) ssv_physical_disk_pool{pool=~\"$pool\",group=~\"$group\"}", "legendFormat": "{{disk}}"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 4,
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+        }
+      }
+    },
+    {
       "type": "row",
       "id": 200,
       "title": "Virtual Disk: $vdisk",
@@ -632,7 +700,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 29
       }
     },
     {

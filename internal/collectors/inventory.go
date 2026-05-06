@@ -11,6 +11,7 @@ package collectors
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -63,6 +64,12 @@ type Inventory struct {
 	portConnected *prometheus.Desc
 	portRole      *prometheus.Desc
 	portInfo      *prometheus.Desc
+
+	pdiskStatus *prometheus.Desc
+	pdiskSize   *prometheus.Desc
+	pdiskFree   *prometheus.Desc
+	pdiskPool   *prometheus.Desc
+	pdiskInfo   *prometheus.Desc
 }
 
 func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
@@ -75,6 +82,8 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 	hostLabels := []string{"host_id", "host"}
 	portLabels := []string{"port_id", "port", "host_id"}
+	pdiskLabels := []string{"disk_id", "disk", "host_id"}
+	pdiskPoolLabels := []string{"disk_id", "disk", "host_id", "pool_id", "pool", "tier"}
 
 	return &Inventory{
 		client: client,
@@ -116,6 +125,12 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 		portConnected: desc("port_connected", "1 if the SCSI/iSCSI port reports as connected.", portLabels),
 		portRole:      desc("port_role_capability", "Port role bitmap (vendor-defined; mixes front-end / mirror / back-end roles).", portLabels),
 		portInfo:      desc("port_info", "Static port information (always 1).", []string{"port_id", "port", "host_id", "port_name", "alias", "port_type", "port_mode"}),
+
+		pdiskStatus: desc("physical_disk_status", "Physical disk status (numeric, vendor-defined). Only Type==4 pool-member disks are exposed.", pdiskLabels),
+		pdiskSize:   desc("physical_disk_size_bytes", "Physical disk capacity.", pdiskLabels),
+		pdiskFree:   desc("physical_disk_free_bytes", "Physical disk free space.", pdiskLabels),
+		pdiskPool:   desc("physical_disk_pool", "Maps a physical disk to its pool and tier (always 1). Joinable on disk_id with the perf metrics.", pdiskPoolLabels),
+		pdiskInfo:   desc("physical_disk_info", "Static physical disk information (always 1).", []string{"disk_id", "disk", "host_id", "vendor", "product", "revision", "is_solid_state", "bus_type"}),
 	}
 }
 
@@ -153,6 +168,11 @@ func (c *Inventory) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.portConnected
 	ch <- c.portRole
 	ch <- c.portInfo
+	ch <- c.pdiskStatus
+	ch <- c.pdiskSize
+	ch <- c.pdiskFree
+	ch <- c.pdiskPool
+	ch <- c.pdiskInfo
 }
 
 func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Metric) bool {
@@ -165,9 +185,11 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 	vdisks, verr := c.client.VirtualDisks(ctx)
 	hosts, herr := c.client.Hosts(ctx)
 	ports, prerr := c.client.Ports(ctx)
+	pdisks, pderr := c.client.PhysicalDisks(ctx)
+	pmembers, pmerr := c.client.PoolMembers(ctx)
 
 	ok := true
-	for _, e := range []error{gerr, serr, perr, verr, herr, prerr} {
+	for _, e := range []error{gerr, serr, perr, verr, herr, prerr, pderr, pmerr} {
 		if e != nil {
 			c.log.Error("ssv inventory scrape error", "err", e)
 			ok = false
@@ -251,6 +273,48 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 			p.ID, p.Caption, p.HostID, p.PortName, p.Alias,
 			itoa(p.PortType), itoa(p.PortMode),
 		)
+	}
+
+	// Build pool/poolMember lookup tables once so each Type==4 disk can
+	// be tagged with its pool and tier in one place.
+	poolByID := make(map[string]ssv.Pool, len(pools))
+	for _, p := range pools {
+		poolByID[p.ID] = p
+	}
+	memberByID := make(map[string]ssv.PoolMember, len(pmembers))
+	for _, m := range pmembers {
+		memberByID[m.ID] = m
+	}
+
+	for _, d := range pdisks {
+		// Type==4 is "real spinning rust / SSD / NVMe attached to a SDS
+		// server". The other types (0=system, 6=mirror pseudo-disk,
+		// 7=client virtual disk) are not pool members and have no
+		// useful metrics for this dashboard.
+		if d.Type != 4 || d.Internal {
+			continue
+		}
+		labels := []string{d.ID, d.Caption, d.HostID}
+		ch <- prometheus.MustNewConstMetric(c.pdiskStatus, prometheus.GaugeValue, float64(d.DiskStatus), labels...)
+		ch <- prometheus.MustNewConstMetric(c.pdiskSize, prometheus.GaugeValue, float64(d.Size.Value), labels...)
+		ch <- prometheus.MustNewConstMetric(c.pdiskFree, prometheus.GaugeValue, float64(d.FreeSpace.Value), labels...)
+		ch <- prometheus.MustNewConstMetric(c.pdiskInfo, prometheus.GaugeValue, 1,
+			d.ID, d.Caption, d.HostID,
+			strings.TrimSpace(d.InquiryData.Vendor),
+			strings.TrimSpace(d.InquiryData.Product),
+			strings.TrimSpace(d.InquiryData.Revision),
+			boolToStr(d.IsSolidState),
+			itoa(d.BusType),
+		)
+		if m, ok := memberByID[d.PoolMemberID]; ok {
+			poolCaption := ""
+			if p, ok := poolByID[m.DiskPoolID]; ok {
+				poolCaption = p.Caption
+			}
+			ch <- prometheus.MustNewConstMetric(c.pdiskPool, prometheus.GaugeValue, 1,
+				d.ID, d.Caption, d.HostID, m.DiskPoolID, poolCaption, itoa(m.DiskTier),
+			)
+		}
 	}
 
 	return ok
