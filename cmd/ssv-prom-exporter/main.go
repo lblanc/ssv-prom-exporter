@@ -158,7 +158,14 @@ func main() {
 	))
 
 	runFn := func(ctx context.Context) error {
-		return serveExporter(ctx, log, *listen, reg)
+		err := serveExporter(ctx, log, *listen, reg)
+		// Best-effort: close every active SSV session before the
+		// process exits, so we don't leak server-side state. Use a
+		// short detached deadline since ctx is already cancelled.
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		client.Close(closeCtx)
+		cancel()
+		return err
 	}
 
 	if svc.IsService() {

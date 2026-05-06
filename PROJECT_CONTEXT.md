@@ -212,3 +212,19 @@ boards had panels we couldn't fill from current metrics). Expose:
   `go test ./...`, and a `windows/amd64` cross-compile build. Triggers
   on every push and `workflow_dispatch`. Go version pinned via
   `go-version-file: go.mod`. README badge wired.
+- 2026-05-07 — Session-based auth in `internal/ssv/client.go`. Each
+  endpoint opens `/sessions` (literal `Basic <user> <pass>`, NOT
+  base64), reuses the returned token via `Authorization: Token
+  <token>`, transparently re-auths once on HTTP 401, and revokes
+  every session via `Client.Close()` at process shutdown (called
+  from `main` after `serveExporter` returns). `SetBackups` now
+  preserves session tokens for endpoints that survive the rebuild
+  (matched on `(baseURL, ServerHost)`). `HTTPError` parses SSV's
+  JSON-fault body so `ErrorCode` / `ErrorMessage` land on the typed
+  fields and surface in `Error()`. `Performance()` honors
+  `NullCounterMap` explicitly (object or array form), skipping
+  flagged counters instead of relying on the JSON-null vs int64
+  decode mismatch. Five new tests cover token caching + `Basic u p`
+  literal auth, 401 reauth-and-retry, persistent 401 propagation,
+  JSON fault parsing, and NullCounterMap filtering. Suite green
+  (10/10), Windows cross-compile OK.

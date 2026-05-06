@@ -212,6 +212,55 @@ override them. Acceptable: the user controls precedence by deciding
 where to put each value. Booleans need a `*bool` in the YAML schema
 to distinguish "absent" from "false".
 
+### Session-based auth, with reauth on 401 and per-endpoint tokens
+Decision: every REST call rides on a session opened via `POST
+/sessions` (literal `Basic <user> <pass>`, NOT base64); resource calls
+authenticate with `Authorization: Token <token>` (NOT `Bearer`). The
+token is cached per `(baseURL, ServerHost)` endpoint, transparently
+re-issued once on HTTP 401, revoked on shutdown via `Client.Close()`,
+and preserved across `SetBackups` rebuilds when an endpoint survives.
+Rationale: matches the official SPA contract documented in DataCore's
+`DcsxDataProvider` (Self-Service Portal). The non-standard literal
+forms are intentional — RFC 7617 / OAuth `Bearer` clients are rejected
+on `/sessions`. Reusing one token across a scrape avoids one Windows
+auth roundtrip per request (~80 calls / 15 s before, one OpenSession
+per process lifetime now). Per-endpoint scoping mirrors how the IIS
+bridge keys session state on (REST host, ServerHost) pairs, so
+failover swaps both endpoint AND token together.
+Trade-off: more state in the client (mutex+token per endpoint), and a
+one-time pause on the first scrape per endpoint while the session
+opens. The previous per-call `SetBasicAuth` did work on PSP 20 (SSV
+accepts both forms on resource endpoints), but burned auth on every
+request and could not survive a future hardening to "session-only".
+
+### JSON-fault parsing in HTTPError
+Decision: HTTP 4xx/5xx responses have their body decoded as the SSV
+JSON fault shape (`{"ErrorCode": int, "ErrorMessage": string}`); the
+parsed values land on `HTTPError.Code` / `Message` while `Body` keeps
+the raw payload. `Error()` formats the structured form when present.
+Rationale: SSV uses WCF's `JsonFault` behavior for every error response
+(e.g. ErrorCode 9 = "No ServerHost header was passed."). Surfacing the
+code makes operator triage faster and lets future logic switch on
+specific error codes without string-matching the body.
+Trade-off: silent fallback when the body isn't JSON (some error
+intermediaries — IIS itself, a reverse proxy — may emit plain text or
+HTML). The raw body remains available, so nothing is lost.
+
+### NullCounterMap honored explicitly in Performance()
+Decision: `Performance()` reads SSV's `NullCounterMap` field on each
+`/performance/{id}` snapshot and skips counters listed there, instead
+of relying on JSON `null` failing to decode as `int64`.
+Rationale: documented in the SANsymphony REST contract — the bitmap
+exists precisely so clients distinguish "counter unavailable" from
+"counter is zero". Two shapes have been observed across PSP releases
+(object `{name: bool}` and array `[name, ...]`); both are accepted
+defensively. The "skip non-int64" fallback remains as belt-and-braces:
+if SSV ever emits `0` instead of `null` for an unavailable counter
+without listing it in `NullCounterMap`, only the bitmap saves us.
+Trade-off: a counter genuinely set to `null` AND missing from
+`NullCounterMap` is silently dropped. That's strictly better than
+emitting a fake zero; consumers re-running rate() see the absence.
+
 ## What to watch out for
 - The `ServerHost` HTTP header is mandatory on every REST call. Without
   it, the API returns 400 with `ErrorCode 9` (`"No ServerHost header was

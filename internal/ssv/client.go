@@ -1,19 +1,25 @@
 // Package ssv is a small HTTP client for DataCore SANsymphony's REST API.
 //
-// SSV's API enforces two non-obvious conventions:
-//   - HTTP Basic auth using a Windows account on the management server.
+// SSV's API enforces three non-obvious conventions:
+//   - Authentication is session-based: POST /sessions with a non-standard
+//     "Basic <user> <pass>" (literal, NOT base64) returns a token; every
+//     subsequent request carries "Token <token>" (NOT "Bearer").
 //   - A mandatory "ServerHost" header on every request, naming the
 //     management server. Missing it returns HTTP 400 ErrorCode 9.
+//   - Errors are returned as a JSON fault body with ErrorCode +
+//     ErrorMessage fields; the structured form lands in HTTPError.
 //
 // The client also supports endpoint failover: it carries a list of
 // {baseURL, serverHost} pairs (the user-provided primary plus any
 // backups discovered from /servers) and falls through them in order
 // on transient errors (network failures, 5xx responses). When every
 // endpoint fails transiently, the call is retried with exponential
-// backoff (capped) honoring ctx.Done().
+// backoff (capped) honoring ctx.Done(). Each endpoint owns its own
+// session token, since /sessions is scoped to (REST host, ServerHost).
 package ssv
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -30,7 +36,10 @@ import (
 	"time"
 )
 
-const apiPathV1 = "/RestService/rest.svc/1.0"
+const (
+	apiPathV1  = "/RestService/rest.svc/1.0"
+	clientName = "ssv-prom-exporter"
+)
 
 // Config holds the inputs needed to talk to a SSV management server.
 type Config struct {
@@ -67,21 +76,64 @@ type Config struct {
 // HTTPError is returned by the client when SSV responds with a 4xx/5xx
 // status. Carrying the code lets callers (and the failover logic)
 // distinguish "configuration" errors (4xx) from "transient" ones (5xx).
+//
+// When the response body is a JSON fault (ErrorCode + ErrorMessage),
+// the parsed values are exposed via Code and Message; Body always
+// holds the raw response for diagnostics.
 type HTTPError struct {
 	StatusCode int
-	Path       string
+	Path       string // includes verb for non-GET, e.g. "POST sessions"
 	Body       string
+
+	Code    int    // ErrorCode from the JSON fault, 0 if absent
+	Message string // ErrorMessage from the JSON fault, "" if absent
 }
 
 func (e *HTTPError) Error() string {
-	return fmt.Sprintf("ssv: GET %s: HTTP %d: %s", e.Path, e.StatusCode, e.Body)
+	detail := e.Body
+	switch {
+	case e.Message != "" && e.Code != 0:
+		detail = fmt.Sprintf("ErrorCode %d: %s", e.Code, e.Message)
+	case e.Message != "":
+		detail = e.Message
+	}
+	return fmt.Sprintf("ssv: %s: HTTP %d: %s", e.Path, e.StatusCode, detail)
 }
 
-// endpoint is one (baseURL, ServerHost-header) pair.
+// newHTTPError builds an HTTPError, parsing the body for the JSON fault
+// shape SSV uses ({"ErrorCode": ..., "ErrorMessage": "..."}). Failure
+// to decode is silently ignored — the raw body always remains
+// available.
+func newHTTPError(path string, statusCode int, body []byte) *HTTPError {
+	e := &HTTPError{
+		StatusCode: statusCode,
+		Path:       path,
+		Body:       strings.TrimSpace(string(body)),
+	}
+	var f struct {
+		ErrorCode    int    `json:"ErrorCode"`
+		ErrorMessage string `json:"ErrorMessage"`
+	}
+	if err := json.Unmarshal(body, &f); err == nil {
+		e.Code = f.ErrorCode
+		e.Message = f.ErrorMessage
+	}
+	return e
+}
+
+// endpoint is one (baseURL, ServerHost-header, session-token) triple.
+// Each endpoint owns its own token because /sessions is scoped to the
+// (REST host, ServerHost) pair: the IIS bridge does not share state
+// across server-group hosts.
 type endpoint struct {
 	baseURL    string
 	serverHost string
+
+	mu    sync.Mutex // guards token
+	token string
 }
+
+func (ep *endpoint) key() string { return ep.baseURL + "|" + ep.serverHost }
 
 // preferredTTL is how long the client keeps preferring a backup after a
 // failover. Once it expires, the next call starts from the primary again
@@ -102,9 +154,9 @@ type Client struct {
 	allowed []*net.IPNet // CIDRs accepted as failover backups; nil means accept any IPv4
 
 	mu           sync.RWMutex
-	endpoints    []endpoint // primary first, backups after
-	preferredIdx int        // index of the last-known-good endpoint
-	preferredTs  time.Time  // when preferredIdx was last set
+	endpoints    []*endpoint // primary first, backups after
+	preferredIdx int         // index of the last-known-good endpoint
+	preferredTs  time.Time   // when preferredIdx was last set
 }
 
 func New(cfg Config) (*Client, error) {
@@ -161,20 +213,37 @@ func New(cfg Config) (*Client, error) {
 				IdleConnTimeout:       60 * time.Second,
 			},
 		},
-		endpoints: []endpoint{{baseURL: cfg.BaseURL, serverHost: cfg.ServerHost}},
+		endpoints: []*endpoint{{baseURL: cfg.BaseURL, serverHost: cfg.ServerHost}},
 	}, nil
 }
 
 // SetBackups replaces the backup endpoint list. The primary (from cfg)
 // remains first; usable IPs from ips are appended as backups. IPs that
 // match the primary host (or each other), or that aren't usable IPv4
-// addresses, are skipped. Logs once at INFO when the resulting list
-// differs from the previous one.
+// addresses, are skipped. Endpoints whose (baseURL, serverHost) pair
+// already existed keep their session token, so SetBackups does not
+// trigger a re-auth on every inventory refresh.
 func (c *Client) SetBackups(ips []string) {
-	primary := endpoint{baseURL: c.cfg.BaseURL, serverHost: c.cfg.ServerHost}
 	primaryHost := hostOf(c.cfg.BaseURL)
 
-	eps := []endpoint{primary}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Index existing endpoints by (baseURL, serverHost) so we can carry
+	// session tokens across the rebuild. New entries get fresh ones.
+	existing := make(map[string]*endpoint, len(c.endpoints))
+	for _, ep := range c.endpoints {
+		existing[ep.key()] = ep
+	}
+	pick := func(baseURL, serverHost string) *endpoint {
+		key := baseURL + "|" + serverHost
+		if ep, ok := existing[key]; ok {
+			return ep
+		}
+		return &endpoint{baseURL: baseURL, serverHost: serverHost}
+	}
+
+	eps := []*endpoint{pick(c.cfg.BaseURL, c.cfg.ServerHost)}
 	seen := map[string]bool{primaryHost: true}
 
 	for _, ip := range ips {
@@ -187,17 +256,14 @@ func (c *Client) SetBackups(ips []string) {
 		if !ok {
 			continue
 		}
-		eps = append(eps, endpoint{baseURL: bu, serverHost: ip})
+		eps = append(eps, pick(bu, ip))
 	}
 
-	c.mu.Lock()
 	changed := !endpointsEqual(c.endpoints, eps)
 	c.endpoints = eps
 	if c.preferredIdx >= len(eps) {
 		c.preferredIdx = 0
 	}
-	c.mu.Unlock()
-
 	if changed {
 		urls := make([]string, len(eps))
 		for i, e := range eps {
@@ -207,12 +273,12 @@ func (c *Client) SetBackups(ips []string) {
 	}
 }
 
-func endpointsEqual(a, b []endpoint) bool {
+func endpointsEqual(a, b []*endpoint) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i] != b[i] {
+		if a[i].baseURL != b[i].baseURL || a[i].serverHost != b[i].serverHost {
 			return false
 		}
 	}
@@ -229,6 +295,21 @@ func (c *Client) Endpoints() []string {
 		out = append(out, ep.baseURL)
 	}
 	return out
+}
+
+// Close terminates every active session. Best-effort: errors per
+// endpoint are logged at debug and do not abort the loop, since the
+// process is shutting down. Safe to call multiple times.
+func (c *Client) Close(ctx context.Context) {
+	c.mu.RLock()
+	eps := make([]*endpoint, len(c.endpoints))
+	copy(eps, c.endpoints)
+	c.mu.RUnlock()
+	for _, ep := range eps {
+		if err := c.closeSession(ctx, ep); err != nil {
+			c.log.Debug("ssv: close session", "endpoint", ep.baseURL, "err", err)
+		}
+	}
 }
 
 // GetRaw fetches the given resource path (relative to the API root) and
@@ -308,10 +389,10 @@ func backoffDelay(base, maxDelay time.Duration, attempt int) time.Duration {
 // in which to try them. The order starts from the last-known-good
 // endpoint (within preferredTTL) and wraps around; outside the TTL it
 // starts from the primary so recovery is detected.
-func (c *Client) tryOrder() ([]endpoint, []int) {
+func (c *Client) tryOrder() ([]*endpoint, []int) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	eps := make([]endpoint, len(c.endpoints))
+	eps := make([]*endpoint, len(c.endpoints))
 	copy(eps, c.endpoints)
 
 	start := 0
@@ -359,13 +440,32 @@ func (c *Client) markPreferred(idx int) {
 	}
 }
 
-func (c *Client) getOne(ctx context.Context, ep endpoint, path string) ([]byte, error) {
+// getOne issues one GET against ep. It transparently re-authenticates
+// once on HTTP 401 (treated as "token expired"); a second 401 is
+// returned to the caller as a non-transient error.
+func (c *Client) getOne(ctx context.Context, ep *endpoint, path string) ([]byte, error) {
+	body, err := c.doGet(ctx, ep, path)
+	if !isUnauthorized(err) {
+		return body, err
+	}
+	c.invalidateToken(ep)
+	return c.doGet(ctx, ep, path)
+}
+
+// doGet performs a single authenticated GET, opening a session if the
+// endpoint does not yet have a token.
+func (c *Client) doGet(ctx context.Context, ep *endpoint, path string) ([]byte, error) {
+	tok, err := c.ensureToken(ctx, ep)
+	if err != nil {
+		return nil, err
+	}
 	u := strings.TrimRight(ep.baseURL, "/") + apiPathV1 + "/" + strings.TrimLeft(path, "/")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.SetBasicAuth(c.cfg.Username, c.cfg.Password)
+	// Non-standard: literal "Token <token>", NOT "Bearer".
+	req.Header.Set("Authorization", "Token "+tok)
 	req.Header.Set("ServerHost", ep.serverHost)
 	req.Header.Set("Accept", "application/json")
 
@@ -380,9 +480,111 @@ func (c *Client) getOne(ctx context.Context, ep endpoint, path string) ([]byte, 
 		return nil, fmt.Errorf("ssv: GET %s: %w", path, err)
 	}
 	if resp.StatusCode >= 400 {
-		return nil, &HTTPError{StatusCode: resp.StatusCode, Path: path, Body: strings.TrimSpace(string(body))}
+		return nil, newHTTPError(path, resp.StatusCode, body)
 	}
 	return body, nil
+}
+
+// ensureToken returns the endpoint's current token, opening a session
+// first if needed. Per-endpoint mutex serialises concurrent goroutines
+// so we never fire two parallel OpenSession calls for the same target.
+func (c *Client) ensureToken(ctx context.Context, ep *endpoint) (string, error) {
+	ep.mu.Lock()
+	defer ep.mu.Unlock()
+	if ep.token != "" {
+		return ep.token, nil
+	}
+	tok, err := c.openSession(ctx, ep)
+	if err != nil {
+		return "", err
+	}
+	ep.token = tok
+	return tok, nil
+}
+
+// invalidateToken drops the cached token. Next call on this endpoint
+// will reopen a session.
+func (c *Client) invalidateToken(ep *endpoint) {
+	ep.mu.Lock()
+	ep.token = ""
+	ep.mu.Unlock()
+}
+
+// openSession exchanges credentials for a session token. The
+// "Authorization: Basic <user> <pass>" header is intentionally NOT
+// base64-encoded — the SSV REST app expects the literal three-token
+// form. Returns the token on success.
+func (c *Client) openSession(ctx context.Context, ep *endpoint) (string, error) {
+	const path = "POST sessions"
+	u := strings.TrimRight(ep.baseURL, "/") + apiPathV1 + "/sessions"
+	body, _ := json.Marshal(map[string]string{
+		"Operation": "OpenSession",
+		"Client":    clientName,
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("ServerHost", ep.serverHost)
+	req.Header.Set("Authorization", "Basic "+c.cfg.Username+" "+c.cfg.Password)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("ssv: open session: %w", err)
+	}
+	defer resp.Body.Close()
+	rb, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("ssv: open session: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		return "", newHTTPError(path, resp.StatusCode, rb)
+	}
+	var out struct {
+		Token string `json:"Token"`
+	}
+	if err := json.Unmarshal(rb, &out); err != nil {
+		return "", fmt.Errorf("ssv: decode session: %w", err)
+	}
+	if out.Token == "" {
+		return "", fmt.Errorf("ssv: open session: empty token in response")
+	}
+	return out.Token, nil
+}
+
+// closeSession terminates the endpoint's session, if any. The token is
+// cleared up-front so concurrent callers don't try to reuse a token
+// we're about to invalidate server-side.
+func (c *Client) closeSession(ctx context.Context, ep *endpoint) error {
+	ep.mu.Lock()
+	tok := ep.token
+	ep.token = ""
+	ep.mu.Unlock()
+	if tok == "" {
+		return nil
+	}
+
+	u := strings.TrimRight(ep.baseURL, "/") + apiPathV1 + "/sessions"
+	body, _ := json.Marshal(map[string]string{
+		"Operation": "CloseSession",
+		"Token":     tok,
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("ServerHost", ep.serverHost)
+	req.Header.Set("Authorization", "Token "+tok)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 // Get fetches the given resource path and decodes the JSON response into out.
@@ -459,8 +661,11 @@ type CounterMap map[string]int64
 
 // Performance fetches the performance counter snapshot for a single
 // instance. The SSV REST endpoint always returns an array of exactly
-// one snapshot; this function unwraps it. CollectionTime and other
-// non-numeric fields are dropped from the returned map.
+// one snapshot; this function unwraps it.
+//
+// Counters listed in NullCounterMap (vendor bitmap of unavailable
+// counters) are skipped, so callers don't see them as zero. Non-numeric
+// fields (CollectionTime, NullCounterMap itself) are dropped.
 func (c *Client) Performance(ctx context.Context, id string) (CounterMap, error) {
 	body, err := c.GetRaw(ctx, "performance/"+url.PathEscape(id))
 	if err != nil {
@@ -473,14 +678,49 @@ func (c *Client) Performance(ctx context.Context, id string) (CounterMap, error)
 	if len(arr) == 0 {
 		return CounterMap{}, nil
 	}
-	out := make(CounterMap, len(arr[0]))
-	for k, v := range arr[0] {
+	raw := arr[0]
+	nulls := decodeNullCounterMap(raw["NullCounterMap"])
+
+	out := make(CounterMap, len(raw))
+	for k, v := range raw {
+		if k == "NullCounterMap" || k == "CollectionTime" {
+			continue
+		}
+		if nulls[k] {
+			continue
+		}
 		var n int64
 		if err := json.Unmarshal(v, &n); err == nil {
 			out[k] = n
 		}
 	}
 	return out, nil
+}
+
+// decodeNullCounterMap reads SSV's NullCounterMap field, which marks
+// counters as unavailable so the client can skip them rather than
+// report them as zero. Two shapes have been observed across PSP
+// versions: a JSON object {name: bool} and a JSON array of names.
+// Anything we can't decode is treated as "no nulls signalled" — the
+// caller still skips counters that don't decode as int64, so we never
+// emit garbage.
+func decodeNullCounterMap(raw json.RawMessage) map[string]bool {
+	if len(raw) == 0 {
+		return nil
+	}
+	var asMap map[string]bool
+	if err := json.Unmarshal(raw, &asMap); err == nil {
+		return asMap
+	}
+	var asArr []string
+	if err := json.Unmarshal(raw, &asArr); err == nil {
+		out := make(map[string]bool, len(asArr))
+		for _, k := range asArr {
+			out[k] = true
+		}
+		return out
+	}
+	return nil
 }
 
 // hostOf extracts the host (without scheme or path) from a URL string.
@@ -561,4 +801,14 @@ func isTransient(err error) bool {
 	// Anything not a 4xx HTTPError is treated as transient: net errors,
 	// timeouts, TLS handshake failures, EOF mid-body, etc.
 	return true
+}
+
+// isUnauthorized reports whether err is an HTTPError carrying a 401.
+// Used by getOne to trigger a single re-auth before propagating.
+func isUnauthorized(err error) bool {
+	var herr *HTTPError
+	if errors.As(err, &herr) {
+		return herr.StatusCode == http.StatusUnauthorized
+	}
+	return false
 }
