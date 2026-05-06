@@ -533,19 +533,22 @@
       "type": "table",
       "id": 40,
       "title": "Ports of the selected host(s)",
-      "description": "Each port belonging to the host(s) selected above. Joined to ssv_host_info via host_id.",
+      "description": "Each port belonging to the host(s) selected above. Joined to ssv_host_info via host_id; the host caption is brought in with `* on(host_id) group_left(host)`.",
       "gridPos": {"h": 8, "w": 24, "x": 0, "y": 39},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"refId": "INFO", "expr": "ssv_port_info{group=~\"$group\"} and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "CONN", "expr": "ssv_port_connected{group=~\"$group\"} and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "IOPS", "expr": "(rate(ssv_port_read_ops_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_port_write_ops_total{group=~\"$group\"}[$__rate_interval])) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
-        {"refId": "BPS", "expr": "(rate(ssv_port_read_bytes_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_port_write_bytes_total{group=~\"$group\"}[$__rate_interval])) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true}
+        {"refId": "INFO", "expr": "ssv_port_info{group=~\"$group\"} * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "CONN", "expr": "ssv_port_connected{group=~\"$group\"} * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "IOPS", "expr": "(rate(ssv_port_read_ops_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_port_write_ops_total{group=~\"$group\"}[$__rate_interval])) * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "BPS", "expr": "(rate(ssv_port_read_bytes_total{group=~\"$group\"}[$__rate_interval]) + rate(ssv_port_write_bytes_total{group=~\"$group\"}[$__rate_interval])) * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "format": "table", "instant": true}
       ],
       "transformations": [
-        {"id": "filterFieldsByName", "options": {"include": {"names": ["port", "host_id", "port_type", "port_mode", "port_name", "Value #CONN", "Value #IOPS", "Value #BPS"]}}},
+        {"id": "filterFieldsByName", "options": {"include": {"names": ["host", "port", "port_type", "port_mode", "port_name", "Value #CONN", "Value #IOPS", "Value #BPS"]}}},
         {"id": "merge"},
-        {"id": "organize", "options": {"renameByName": {"port": "Port", "host_id": "HostId", "port_type": "Type", "port_mode": "Mode", "port_name": "PortName", "Value #CONN": "Conn", "Value #IOPS": "IOPS", "Value #BPS": "B/s"}}}
+        {"id": "organize", "options": {
+          "renameByName": {"host": "Host", "port": "Port", "port_type": "Type", "port_mode": "Mode", "port_name": "PortName", "Value #CONN": "Conn", "Value #IOPS": "IOPS", "Value #BPS": "B/s"},
+          "indexByName": {"host": 0, "port": 1, "port_type": 2, "port_mode": 3, "port_name": 4, "Value #CONN": 5, "Value #IOPS": 6, "Value #BPS": 7}
+        }}
       ],
       "fieldConfig": {
         "defaults": {"custom": {"align": "auto"}},
@@ -570,12 +573,12 @@
       "type": "timeseries",
       "id": 41,
       "title": "IOPS per port",
-      "description": "Per-port IOPS for ports belonging to the selected host(s).",
+      "description": "Per-port IOPS for ports belonging to the selected host(s). Series legend shows the owning host so duplicates like 'vmhba64' across hosts can be told apart.",
       "gridPos": {"h": 9, "w": 12, "x": 0, "y": 47},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_port_read_ops_total{group=~\"$group\"}[$__rate_interval]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} read"},
-        {"refId": "W", "expr": "rate(ssv_port_write_ops_total{group=~\"$group\"}[$__rate_interval]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} write"}
+        {"refId": "R", "expr": "rate(ssv_port_read_ops_total{group=~\"$group\"}[$__rate_interval]) * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{host}} / {{port}} read"},
+        {"refId": "W", "expr": "rate(ssv_port_write_ops_total{group=~\"$group\"}[$__rate_interval]) * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{host}} / {{port}} write"}
       ],
       "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
       "fieldConfig": {"defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
@@ -587,8 +590,8 @@
       "gridPos": {"h": 9, "w": 12, "x": 12, "y": 47},
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "targets": [
-        {"refId": "R", "expr": "rate(ssv_port_read_bytes_total{group=~\"$group\"}[$__rate_interval]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} read"},
-        {"refId": "W", "expr": "rate(ssv_port_write_bytes_total{group=~\"$group\"}[$__rate_interval]) and on(host_id) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{port}} write"}
+        {"refId": "R", "expr": "rate(ssv_port_read_bytes_total{group=~\"$group\"}[$__rate_interval]) * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{host}} / {{port}} read"},
+        {"refId": "W", "expr": "rate(ssv_port_write_bytes_total{group=~\"$group\"}[$__rate_interval]) * on(host_id) group_left(host) ssv_host_info{host=~\"$host\",group=~\"$group\"}", "legendFormat": "{{host}} / {{port}} write"}
       ],
       "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
       "fieldConfig": {"defaults": {"unit": "binBps", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
