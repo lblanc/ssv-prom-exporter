@@ -54,11 +54,12 @@ The MSI:
   a manual step (see [Windows service](#windows-service)) so that the
   config path and credentials never leak into MSI properties.
 
-End-to-end install on a Windows target, from an **elevated** prompt:
+End-to-end install on a Windows target, from an **elevated** prompt
+(replace `X.Y.Z` with the version you downloaded):
 
 ```bat
 :: 1. Run the MSI (silent or with the standard wizard).
-msiexec /i ssv-prom-exporter-0.1.0-x64.msi /qn
+msiexec /i ssv-prom-exporter-X.Y.Z-x64.msi /qn
 
 :: 2. Drop the YAML config in ProgramData and tighten ACLs.
 copy "C:\Program Files\ssv-prom-exporter\config.example.yaml" ^
@@ -71,6 +72,37 @@ icacls "C:\ProgramData\ssv-prom-exporter\config.yaml" /inheritance:r ^
 "C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" ^
   -install -config "C:\ProgramData\ssv-prom-exporter\config.yaml"
 sc start ssv-prom-exporter
+```
+
+### Uninstall
+
+The service registration is independent from the MSI (it's done by
+`-install` after the MSI ran), so it must be removed first. From an
+**elevated** prompt:
+
+```bat
+:: 1. Stop and unregister the service.
+sc stop ssv-prom-exporter
+"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" -uninstall
+
+:: 2. Remove the configuration directory (skip to keep the YAML for a reinstall).
+rmdir /s /q "C:\ProgramData\ssv-prom-exporter"
+
+:: 3. Uninstall the MSI. Either by file:
+msiexec /x ssv-prom-exporter-X.Y.Z-x64.msi /qn
+::    or via Control Panel → Programs and Features →
+::    "DataCore SANsymphony Prometheus Exporter".
+```
+
+If the MSI file is no longer available, find the ProductCode and pass
+it to `msiexec`:
+
+```powershell
+Get-WmiObject Win32_Product `
+  -Filter "Name='DataCore SANsymphony Prometheus Exporter'" |
+  Select-Object IdentifyingNumber
+
+msiexec /x {<the-ProductCode-from-above>} /qn
 ```
 
 ### From source
