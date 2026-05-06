@@ -1,0 +1,190 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "SSV",
+      "tags": ["ssv"],
+      "asDropdown": true,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Inventory",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "type": "table",
+      "id": 1,
+      "title": "Ports",
+      "description": "SCSI / iSCSI / FC ports. PortType: 3 = iSCSI, 4 = FC. role_capability is a vendor bitmap mixing front-end / mirror / back-end.",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "INFO", "expr": "ssv_port_info{port=~\"$port\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "CONN", "expr": "ssv_port_connected{port=~\"$port\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "ROLE", "expr": "ssv_port_role_capability{port=~\"$port\",group=~\"$group\"}", "format": "table", "instant": true},
+        {"refId": "IOPS", "expr": "rate(ssv_port_read_ops_total{port=~\"$port\",group=~\"$group\"}[5m]) + rate(ssv_port_write_ops_total{port=~\"$port\",group=~\"$group\"}[5m])", "format": "table", "instant": true},
+        {"refId": "BPS", "expr": "rate(ssv_port_read_bytes_total{port=~\"$port\",group=~\"$group\"}[5m]) + rate(ssv_port_write_bytes_total{port=~\"$port\",group=~\"$group\"}[5m])", "format": "table", "instant": true}
+      ],
+      "transformations": [
+        {"id": "filterFieldsByName", "options": {"include": {"names": ["group", "port", "host_id", "port_type", "port_mode", "alias", "Value #CONN", "Value #ROLE", "Value #IOPS", "Value #BPS"]}}},
+        {"id": "merge"},
+        {"id": "organize", "options": {"renameByName": {"group": "Group", "port": "Port", "host_id": "HostId", "port_type": "Type", "port_mode": "Mode", "alias": "Alias", "Value #CONN": "Conn", "Value #ROLE": "Role", "Value #IOPS": "IOPS", "Value #BPS": "B/s"}}}
+      ],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto"}},
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Conn"},
+            "properties": [
+              {"id": "mappings", "value": [{"type": "value", "options": {"0": {"text": "no", "color": "red", "index": 0}, "1": {"text": "yes", "color": "green", "index": 1}}}]},
+              {"id": "custom.cellOptions", "value": {"type": "color-background"}}
+            ]
+          },
+          {
+            "matcher": {"id": "byName", "options": "Type"},
+            "properties": [{"id": "mappings", "value": [{"type": "value", "options": {"3": {"text": "iSCSI", "index": 0}, "4": {"text": "FC", "index": 1}}}]}]
+          },
+          {"matcher": {"id": "byName", "options": "IOPS"}, "properties": [{"id": "unit", "value": "iops"}, {"id": "decimals", "value": 0}]},
+          {"matcher": {"id": "byName", "options": "B/s"}, "properties": [{"id": "unit", "value": "binBps"}, {"id": "decimals", "value": 1}]}
+        ]
+      }
+    },
+    {
+      "type": "row",
+      "id": 200,
+      "title": "Workload",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 11}
+    },
+    {
+      "type": "timeseries",
+      "id": 10,
+      "title": "IOPS per port",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "R", "expr": "rate(ssv_port_read_ops_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} read"},
+        {"refId": "W", "expr": "rate(ssv_port_write_ops_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} write"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "iops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
+    },
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "Bandwidth per port",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {"refId": "R", "expr": "rate(ssv_port_read_bytes_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} read"},
+        {"refId": "W", "expr": "rate(ssv_port_write_bytes_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} write"}
+      ],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "binBps", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
+    },
+    {
+      "type": "timeseries",
+      "id": 12,
+      "title": "Target IO latency",
+      "description": "rate(target_io_time) / rate(target_ops). Only ports acting as targets emit non-zero values. Thresholds at 5 ms (warn) / 8 ms (critical).",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "rate(ssv_port_target_io_time_seconds_total{port=~\"$port\",group=~\"$group\"}[5m]) / clamp_min(rate(ssv_port_target_ops_total{port=~\"$port\",group=~\"$group\"}[5m]), 1)", "legendFormat": "{{port}}"}],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 4,
+          "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0, "thresholdsStyle": {"mode": "line"}},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.005}, {"color": "red", "value": 0.008}]}
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 13,
+      "title": "Pending commands",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [{"refId": "A", "expr": "ssv_port_pending_commands{port=~\"$port\",group=~\"$group\"}", "legendFormat": "{{port}}"}],
+      "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "fieldConfig": {"defaults": {"unit": "short", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
+    },
+    {
+      "type": "row",
+      "id": 300,
+      "title": "Errors",
+      "collapsed": true,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 29},
+      "panels": [
+        {
+          "type": "timeseries",
+          "id": 20,
+          "title": "Link / CRC / sync errors per port",
+          "description": "All four error counters in one panel; flat lines == healthy. Watch any sustained slope.",
+          "gridPos": {"h": 9, "w": 24, "x": 0, "y": 30},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"refId": "A", "expr": "rate(ssv_port_busy_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} busy"},
+            {"refId": "B", "expr": "rate(ssv_port_invalid_crc_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} crc"},
+            {"refId": "C", "expr": "rate(ssv_port_link_failure_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} link-fail"},
+            {"refId": "D", "expr": "rate(ssv_port_loss_of_signal_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} loss-of-sig"},
+            {"refId": "E", "expr": "rate(ssv_port_loss_of_sync_total{port=~\"$port\",group=~\"$group\"}[5m])", "legendFormat": "{{port}} loss-of-sync"}
+          ],
+          "options": {"legend": {"displayMode": "table", "placement": "right", "calcs": ["mean", "lastNotNull", "max"]}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "fieldConfig": {"defaults": {"unit": "ops", "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never", "axisSoftMin": 0}}}
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["ssv", "datacore", "ports"],
+  "templating": {
+    "list": [
+      {
+        "name": "group",
+        "label": "Group",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "definition": "label_values(ssv_up, group)",
+        "query": {"qryType": 1, "query": "label_values(ssv_up, group)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {}
+      },
+      {
+        "name": "port",
+        "label": "Port",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "definition": "label_values(ssv_port_info{group=~\"$group\"}, port)",
+        "query": {"qryType": 1, "query": "label_values(ssv_port_info{group=~\"$group\"}, port)", "refId": "PrometheusVariableQueryEditor-VariableQuery"},
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m", "30m", "1h"]},
+  "title": "SSV — Ports",
+  "uid": "ssv-ports",
+  "version": 1
+}

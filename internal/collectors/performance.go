@@ -26,6 +26,7 @@ type Performance struct {
 	poolMappings   []perfMapping
 	vdiskMappings  []perfMapping
 	hostMappings   []perfMapping
+	portMappings   []perfMapping
 }
 
 // perfMapping links a SSV counter name to the Prometheus desc and value
@@ -63,6 +64,7 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 	hostLabels := []string{"host_id", "host"}
+	portLabels := []string{"port_id", "port", "host_id"}
 
 	c := &Performance{
 		client:  client,
@@ -139,6 +141,28 @@ func NewPerformance(client *ssv.Client, log *slog.Logger, workers int) *Performa
 		{key: "MaxWriteSize", desc: desc("host_max_write_size_bytes", "Peak write IO size observed for this SAN client.", hostLabels), valType: prometheus.GaugeValue},
 		{key: "MaxOperationSize", desc: desc("host_max_op_size_bytes", "Peak IO size (read or write) observed for this SAN client.", hostLabels), valType: prometheus.GaugeValue},
 	}
+	c.portMappings = []perfMapping{
+		// Aggregate IO (sum of initiator + target).
+		{key: "TotalReads", desc: desc("port_read_ops_total", "Cumulative read operations on this SCSI/iSCSI port.", portLabels), valType: prometheus.CounterValue},
+		{key: "TotalWrites", desc: desc("port_write_ops_total", "Cumulative write operations on this SCSI/iSCSI port.", portLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesRead", desc: desc("port_read_bytes_total", "Cumulative bytes read on this SCSI/iSCSI port.", portLabels), valType: prometheus.CounterValue},
+		{key: "TotalBytesWritten", desc: desc("port_write_bytes_total", "Cumulative bytes written on this SCSI/iSCSI port.", portLabels), valType: prometheus.CounterValue},
+		{key: "TotalPendingCommands", desc: desc("port_pending_commands", "Pending commands currently queued on this port.", portLabels), valType: prometheus.GaugeValue},
+		// Target side (port acting as iSCSI/FC target — mostly the SDS server's front-end ports).
+		{key: "TargetOperations", desc: desc("port_target_ops_total", "Cumulative operations on this port acting as target.", portLabels), valType: prometheus.CounterValue},
+		{key: "TargetBytesTransferred", desc: desc("port_target_bytes_total", "Cumulative bytes transferred on this port acting as target.", portLabels), valType: prometheus.CounterValue},
+		{key: "TargetTotalOperationsTime", desc: desc("port_target_io_time_seconds_total", "Cumulative time spent on target IO operations.", portLabels), valType: prometheus.CounterValue, scale: timeScale},
+		{key: "TargetMaxIOTime", desc: desc("port_target_io_max_time_seconds", "Peak target IO duration recently observed.", portLabels), valType: prometheus.GaugeValue, scale: timeScale},
+		// Initiator side (port acting as initiator — back-end / mirror traffic).
+		{key: "InitiatorOperations", desc: desc("port_initiator_ops_total", "Cumulative operations on this port acting as initiator.", portLabels), valType: prometheus.CounterValue},
+		{key: "InitiatorBytesTransferred", desc: desc("port_initiator_bytes_total", "Cumulative bytes transferred on this port acting as initiator.", portLabels), valType: prometheus.CounterValue},
+		// Link-layer error counters (FC/iSCSI plumbing).
+		{key: "BusyCount", desc: desc("port_busy_total", "Cumulative count of port-busy events.", portLabels), valType: prometheus.CounterValue},
+		{key: "InvalidCrcCount", desc: desc("port_invalid_crc_total", "Cumulative invalid-CRC frames.", portLabels), valType: prometheus.CounterValue},
+		{key: "LinkFailureCount", desc: desc("port_link_failure_total", "Cumulative link-failure events.", portLabels), valType: prometheus.CounterValue},
+		{key: "LossOfSignalCount", desc: desc("port_loss_of_signal_total", "Cumulative loss-of-signal events.", portLabels), valType: prometheus.CounterValue},
+		{key: "LossOfSyncCount", desc: desc("port_loss_of_sync_total", "Cumulative loss-of-sync events.", portLabels), valType: prometheus.CounterValue},
+	}
 	return c
 }
 
@@ -157,6 +181,9 @@ func (c *Performance) Describe(ch chan<- *prometheus.Desc) {
 	for _, m := range c.hostMappings {
 		ch <- m.desc
 	}
+	for _, m := range c.portMappings {
+		ch <- m.desc
+	}
 }
 
 // perfJob is one /performance/{id} call to make.
@@ -173,12 +200,13 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 	pools, pErr := c.client.Pools(ctx)
 	vdisks, vErr := c.client.VirtualDisks(ctx)
 	hosts, hErr := c.client.Hosts(ctx)
-	if err := errors.Join(sErr, pErr, vErr, hErr); err != nil {
+	ports, ptErr := c.client.Ports(ctx)
+	if err := errors.Join(sErr, pErr, vErr, hErr, ptErr); err != nil {
 		c.log.Error("ssv perf: inventory lookup failed", "err", err)
 		return false
 	}
 
-	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks)+len(hosts))
+	jobs := make([]perfJob, 0, len(servers)+len(pools)+len(vdisks)+len(hosts)+len(ports))
 	for _, s := range servers {
 		jobs = append(jobs, perfJob{
 			id:       s.ID,
@@ -208,6 +236,16 @@ func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.M
 			id:       h.ID,
 			mappings: c.hostMappings,
 			labels:   []string{h.ID, h.Caption},
+		})
+	}
+	for _, p := range ports {
+		if p.Internal {
+			continue
+		}
+		jobs = append(jobs, perfJob{
+			id:       p.ID,
+			mappings: c.portMappings,
+			labels:   []string{p.ID, p.Caption, p.HostID},
 		})
 	}
 

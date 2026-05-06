@@ -425,6 +425,11 @@ func (c *Client) Hosts(ctx context.Context) ([]Host, error) {
 	return v, c.Get(ctx, "hosts", &v)
 }
 
+func (c *Client) Ports(ctx context.Context) ([]Port, error) {
+	var v []Port
+	return v, c.Get(ctx, "ports", &v)
+}
+
 func (c *Client) Monitors(ctx context.Context) ([]Monitor, error) {
 	var v []Monitor
 	return v, c.Get(ctx, "monitors", &v)

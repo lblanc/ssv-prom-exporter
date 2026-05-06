@@ -91,6 +91,28 @@ type Host struct {
 	Internal          bool   `json:"Internal"`
 }
 
+// Port is the subset of /ports fields surfaced as metrics.
+//
+// HostId points at the Host that owns / exposes the port (which on
+// SDS servers themselves is also a "host" in SSV's topology). PortType
+// and PortMode are vendor-defined enums (3 = iSCSI in our lab, 4 = FC).
+// RoleCapability is a bitmap mixing front-end / mirror / back-end
+// roles; we expose it as-is and let the dashboard interpret.
+type Port struct {
+	ID              string `json:"Id"`
+	Caption         string `json:"Caption"`
+	Alias           string `json:"Alias"`
+	HostID          string `json:"HostId"`
+	PortName        string `json:"PortName"`
+	PhysicalName    string `json:"PhysicalName"`
+	PortType        int    `json:"PortType"`
+	PortMode        int    `json:"PortMode"`
+	PresenceStatus  int    `json:"PresenceStatus"`
+	RoleCapability  int    `json:"RoleCapability"`
+	Connected       bool   `json:"Connected"`
+	Internal        bool   `json:"Internal"`
+}
+
 // Monitor is the subset of /monitors fields surfaced as metrics.
 //
 // State is vendor-defined; in the PSP 20 lab we observe values 1, 2 and 4

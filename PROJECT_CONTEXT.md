@@ -55,9 +55,6 @@ boards had panels we couldn't fill from current metrics). Expose:
 - [ ] **Physical disks** (`/physicalDisks` + `/performance/{id}`):
       `ssv_physical_disk_{status,size_bytes,...}` and IOPS / latency
       counters mirroring the server/pool/vdisk shape.
-- [ ] **SCSI ports** (`/ports` + `/performance/{id}`): TotalReads /
-      TotalWrites / TotalOperations rates per port (front-end /
-      mirror role).
 - [ ] **Pool extras**: `EstimatedDepletionTime` (gauge, seconds),
       `MaxTierNumber`, `TierReservedPct`, `InSharedMode` (info
       labels on `ssv_pool_info` if we add one).
@@ -117,6 +114,22 @@ boards had panels we couldn't fill from current metrics). Expose:
   install flow now bakes only `-config <path>` into the SCM
   ImagePath, keeping `-pass` out of `sc qc`.
   `config.example.yaml` ships in the repo.
+- 2026-05-06 — Ports (SCSI / iSCSI / FC) collector. New `ssv.Port`
+  type + `client.Ports()` against `/ports`. Inventory emits
+  `ssv_port_connected`, `ssv_port_role_capability` (vendor bitmap),
+  `ssv_port_info` (port_name, alias, port_type, port_mode, host_id).
+  Performance fans out `/performance/{port-id}` for aggregate IO
+  (`ssv_port_{read,write}_{ops,bytes}_total`,
+  `ssv_port_pending_commands`), per-direction split
+  (`ssv_port_{target,initiator}_{ops,bytes}_total`), target latency
+  (`ssv_port_target_io_time_seconds_total`,
+  `ssv_port_target_io_max_time_seconds`), and link-layer error
+  counters (busy / invalid_crc / link_failure / loss_of_signal /
+  loss_of_sync). Internal=true ports are skipped. New Grafana
+  dashboard `ssv-ports.json`.
+- 2026-05-06 — Group template variable changed to single-select on
+  every dashboard (`multi: false`, `includeAll: false`). Better fits
+  the "one SAN group at a time" workflow.
 - 2026-05-06 — Hosts (SAN-client / initiator) collector. New
   `ssv.Host` type + `client.Hosts()` against `/hosts`. Inventory
   collector emits `ssv_host_state`, `ssv_host_connection_state`,

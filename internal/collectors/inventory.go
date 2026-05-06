@@ -59,6 +59,10 @@ type Inventory struct {
 	hostMaint      *prometheus.Desc
 	hostType       *prometheus.Desc
 	hostInfo       *prometheus.Desc
+
+	portConnected *prometheus.Desc
+	portRole      *prometheus.Desc
+	portInfo      *prometheus.Desc
 }
 
 func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
@@ -70,6 +74,7 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 	poolLabels := []string{"pool_id", "pool", "server_id"}
 	vdiskLabels := []string{"vdisk_id", "vdisk"}
 	hostLabels := []string{"host_id", "host"}
+	portLabels := []string{"port_id", "port", "host_id"}
 
 	return &Inventory{
 		client: client,
@@ -107,6 +112,10 @@ func NewInventory(client *ssv.Client, log *slog.Logger) *Inventory {
 		hostMaint:     desc("host_maintenance_mode", "1 if the host is in maintenance mode.", hostLabels),
 		hostType:      desc("host_type", "Host type (numeric, vendor-defined).", hostLabels),
 		hostInfo:      desc("host_info", "Static host information (always 1).", []string{"host_id", "host", "host_name", "description", "version"}),
+
+		portConnected: desc("port_connected", "1 if the SCSI/iSCSI port reports as connected.", portLabels),
+		portRole:      desc("port_role_capability", "Port role bitmap (vendor-defined; mixes front-end / mirror / back-end roles).", portLabels),
+		portInfo:      desc("port_info", "Static port information (always 1).", []string{"port_id", "port", "host_id", "port_name", "alias", "port_type", "port_mode"}),
 	}
 }
 
@@ -141,6 +150,9 @@ func (c *Inventory) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.hostMaint
 	ch <- c.hostType
 	ch <- c.hostInfo
+	ch <- c.portConnected
+	ch <- c.portRole
+	ch <- c.portInfo
 }
 
 func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Metric) bool {
@@ -152,9 +164,10 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 	pools, perr := c.client.Pools(ctx)
 	vdisks, verr := c.client.VirtualDisks(ctx)
 	hosts, herr := c.client.Hosts(ctx)
+	ports, prerr := c.client.Ports(ctx)
 
 	ok := true
-	for _, e := range []error{gerr, serr, perr, verr, herr} {
+	for _, e := range []error{gerr, serr, perr, verr, herr, prerr} {
 		if e != nil {
 			c.log.Error("ssv inventory scrape error", "err", e)
 			ok = false
@@ -225,6 +238,19 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		ch <- prometheus.MustNewConstMetric(c.hostMaint, prometheus.GaugeValue, btof(h.InMaintenanceMode), labels...)
 		ch <- prometheus.MustNewConstMetric(c.hostType, prometheus.GaugeValue, float64(h.Type), labels...)
 		ch <- prometheus.MustNewConstMetric(c.hostInfo, prometheus.GaugeValue, 1, h.ID, h.Caption, h.HostName, h.Description, h.Version)
+	}
+
+	for _, p := range ports {
+		if p.Internal {
+			continue
+		}
+		labels := []string{p.ID, p.Caption, p.HostID}
+		ch <- prometheus.MustNewConstMetric(c.portConnected, prometheus.GaugeValue, btof(p.Connected), labels...)
+		ch <- prometheus.MustNewConstMetric(c.portRole, prometheus.GaugeValue, float64(p.RoleCapability), labels...)
+		ch <- prometheus.MustNewConstMetric(c.portInfo, prometheus.GaugeValue, 1,
+			p.ID, p.Caption, p.HostID, p.PortName, p.Alias,
+			itoa(p.PortType), itoa(p.PortMode),
+		)
 	}
 
 	return ok

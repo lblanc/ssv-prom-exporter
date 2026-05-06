@@ -1,6 +1,10 @@
 package collectors
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"strconv"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 const namespace = "ssv"
 
@@ -14,3 +18,5 @@ func btof(b bool) float64 {
 	}
 	return 0
 }
+
+func itoa(i int) string { return strconv.Itoa(i) }

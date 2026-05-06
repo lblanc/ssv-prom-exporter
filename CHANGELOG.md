@@ -5,6 +5,34 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] - 2026-05-06
+
+### Added
+- **Ports (SCSI / iSCSI / FC)** as first-class objects.
+  - Inventory emits `ssv_port_{connected,role_capability,info}`. The
+    `info` labels carry `port_name`, `alias`, `port_type`,
+    `port_mode`, and `host_id` (which links to `ssv_host_info`).
+    `Internal=true` ports are skipped.
+  - Performance fans out `/performance/{port-id}` per port. Metrics:
+    aggregate IO (`ssv_port_{read,write}_{ops,bytes}_total`,
+    `ssv_port_pending_commands`); per-direction split
+    (`ssv_port_{target,initiator}_{ops,bytes}_total`); target latency
+    (`ssv_port_target_io_time_seconds_total`,
+    `ssv_port_target_io_max_time_seconds`); link-layer error
+    counters (`ssv_port_{busy,invalid_crc,link_failure,
+    loss_of_signal,loss_of_sync}_total`).
+- New Grafana dashboard **SSV — Ports** (`ssv-ports.json`):
+  inventory table, IOPS & bandwidth per port, target IO latency,
+  pending commands, and a collapsible Errors row plotting all the
+  link-layer counters together.
+
+### Changed
+- The dashboard `Group` variable is now single-select. Pick one SAN
+  group at a time — multi-group analysis is rare in practice and
+  having `All` selected by default surfaced confusing aggregates.
+
+[v0.3.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.3.0
+
 ## [v0.2.0] - 2026-05-06
 
 ### Added

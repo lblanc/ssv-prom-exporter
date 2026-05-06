@@ -1185,13 +1185,9 @@
         },
         "refresh": 2,
         "sort": 1,
-        "multi": true,
-        "includeAll": true,
-        "allValue": ".+",
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        }
+        "multi": false,
+        "includeAll": false,
+        "current": {}
       }
     ]
   },
