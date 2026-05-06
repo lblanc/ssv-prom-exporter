@@ -32,7 +32,7 @@ tidy:
 # package) on the build host. The MSI's ProductVersion is derived from
 # the git tag (`vX.Y.Z`); see MSI_VERSION above.
 msi: build-windows
-	wixl -D Version=$(MSI_VERSION) -o $(MSI) packaging/windows/installer.wxs
+	wixl -a x64 -D Version=$(MSI_VERSION) -o $(MSI) packaging/windows/installer.wxs
 	@echo "built $(MSI)"
 
 clean:

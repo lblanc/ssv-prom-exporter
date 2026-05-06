@@ -32,6 +32,12 @@
            Manufacturer="Luc Blanc"
            UpgradeCode="79d5acf1-5b46-47ce-82d6-cec7d178cdb7">
 
+    <!--
+      Note: the package architecture is set via `wixl -a x64` (see
+      Makefile), not via a Platform attribute here. wixl 0.106 does
+      not recognise <Package Platform="x64"> and emits a warning if
+      it's present.
+    -->
     <Package InstallerVersion="500"
              Compressed="yes"
              InstallScope="perMachine"
