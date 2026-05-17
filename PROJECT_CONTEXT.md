@@ -16,8 +16,11 @@ active
 - Config: env vars for v0; YAML once more knobs are needed
 - HTTP client: stdlib net/http (Basic auth + ServerHost header +
   InsecureSkipVerify by default for SSV's self-signed certs)
-- Runtime target: Windows Server (any version supported by SSV PSP 20+).
-  Builds cross-compile cleanly from Linux (CGO_ENABLED=0).
+- Runtime targets: Windows (native service via SCM, MSI install),
+  Linux (static binary + hardened systemd unit, tarball install), and
+  any container host (multi-arch OCI image on
+  ghcr.io/lblanc/ssv-prom-exporter). Builds cross-compile cleanly from
+  Linux (CGO_ENABLED=0).
 
 ## Repository
 - Remote: git@github.com:lblanc/ssv-prom-exporter.git
@@ -29,14 +32,31 @@ cmd/ssv-prom-exporter/    # entrypoint (CLI flags, dispatch)
 internal/ssv/             # REST client, types, .NET-date unmarshaller
 internal/collectors/      # one file per signal tier (inventory, health, performance)
 internal/svc/             # Windows service wrapper + EventLog
-internal/config/          # config loading (later)
+internal/config/          # config loading
+packaging/windows/        # WiX MSI definition (built via wixl)
+packaging/linux/          # systemd unit + install-linux.sh
+deploy/                   # docker-compose stack (Prom + Grafana + dashboards,
+                          # exporter optional via --profile full)
+Dockerfile                # multi-stage build to alpine:3, nonroot
 ```
 
 ## How to run / build / test
 ```
-make build              # native (linux/amd64)
+make build              # native (host's GOOS/GOARCH)
+make build-linux        # static linux/amd64
 make build-windows      # cross-compile to windows/amd64
+make msi                # build the MSI (requires wixl)
+make tarball-linux      # build the linux tarball with systemd unit + config
+make docker-build       # build the OCI image (ghcr.io/lblanc/ssv-prom-exporter)
 make run-ping           # probe the lab using SSV_URL / SSV_USER / SSV_PASS env vars
+```
+
+End-to-end demo stack (Prometheus + Grafana + dashboards + exporter):
+```
+cd deploy
+cp .env.example .env       # set SSV_URL / SSV_USER / SSV_PASS / SSV_GROUP
+docker compose --profile full up -d --build
+# Grafana http://localhost:3000 ; Prometheus http://localhost:9090
 ```
 
 Smoke test against the lab:
@@ -46,8 +66,10 @@ SSV_URL=https://10.12.110.11 SSV_USER=administrator SSV_PASS=*** \
 ```
 
 ## Current focus
-Feature-complete v0: three collectors + REST failover + Windows
-service mode all in. Next round of polish is config + retry + CI.
+Feature-complete v0.8 — three collectors + REST failover + session
+auth + Windows service + Linux systemd + Docker image +
+full-stack docker-compose. Tag `v0.8.0` not yet cut; the
+CHANGELOG entry lives at the top of `CHANGELOG.md`.
 
 ## Remaining tasks
 Coverage gaps surfaced by the Grafana dashboards (the inspiration
@@ -57,6 +79,18 @@ boards had panels we couldn't fill from current metrics). Expose:
       labels on `ssv_pool_info` if we add one).
 - [ ] **VDisk allocation %** if the field exists on the REST shape
       (the InfluxDB inspiration uses `PercentAllocated`).
+- [ ] **Vendor-enum mapping** for state metrics
+      (`ssv_server_state`, `ssv_pool_status`, `ssv_host_state`, …)
+      so dashboards no longer translate via Grafana value
+      mappings.
+- [ ] **Custom CA pool** flag to flip `-insecure` off in sites
+      with an internal PKI.
+- [ ] **PSP 21 / 22 validation** — confirm session-auth flow,
+      `ServerHost` header, perf endpoint shape on newer releases.
+- [ ] **Cut the v0.8.0 tag** once the morning review of the
+      Docker / Linux additions is OK. Tag triggers the release
+      workflow which publishes the MSI + Linux tarball +
+      multi-arch image on GHCR.
 
 ## Completed
 - 2026-05-05 — REST API discovery against PSP 20 lab; all key endpoints
@@ -228,3 +262,31 @@ boards had panels we couldn't fill from current metrics). Expose:
   literal auth, 401 reauth-and-retry, persistent 401 propagation,
   JSON fault parsing, and NullCounterMap filtering. Suite green
   (10/10), Windows cross-compile OK.
+- 2026-05-18 — v0.8.0 work (committed on `main`, tag not yet cut):
+  Linux + Docker + full-stack compose. `Dockerfile` (multi-stage
+  builder -> `alpine:3`, nonroot uid 65532, tini, wget HEALTHCHECK on
+  `/metrics`, ~34 MB final). `packaging/linux/ssv-prom-exporter.service`
+  hardened systemd unit (DynamicUser, ProtectSystem=strict,
+  NoNewPrivileges, SystemCallFilter=@system-service,
+  RestrictAddressFamilies=AF_INET/AF_INET6/AF_UNIX, memory / task
+  limits) and `install-linux.sh` (idempotent: laying out
+  `/usr/local/bin` + `/etc/ssv-prom-exporter` + the unit). New Makefile
+  targets `build-linux`, `tarball-linux`, `docker-build`,
+  `docker-push`. `deploy/docker-compose.yml` gained a `full` compose
+  profile that runs the exporter as a fourth service alongside
+  Prometheus + Grafana; configured via `SSV_URL` / `SSV_USER` /
+  `SSV_PASS` / `SSV_GROUP` in `.env`. `release.yml` extended:
+  multi-arch image push to `ghcr.io/lblanc/ssv-prom-exporter`
+  (`vX.Y.Z`, `X.Y`, `latest`) and Linux tarball attached to the
+  GitHub Release. CI gates a `docker build` (no push) on every
+  push. README gains "Install on Linux" / "Run with Docker" /
+  "Full stack with the exporter" sections; CHANGELOG carries the
+  v0.8.0 entry.
+- 2026-05-18 — Deliverables refreshed end-to-end: deck (PPTX, 15
+  slides incl. 5 dashboard screenshots taken against the live PSP 20
+  lab), operator user guide (PDF, 15 pages, screenshots embedded),
+  DataCore-style web help (HTML, accordion sidebar with Linux /
+  Docker / full-stack chapters and embedded screenshots). All
+  rebuilt automatically from sources under `out/`
+  (`build_deck.py`, `pdf-style.css`, `architecture.dot`,
+  `user-guide.md`).
