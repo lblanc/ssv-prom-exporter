@@ -1,17 +1,25 @@
 # Test stack for ssv-prom-exporter: Prometheus + Grafana with the
-# dashboards pre-provisioned. Start with:
+# dashboards pre-provisioned.
 #
-#   cd deploy && cp .env.example .env && $EDITOR .env
-#   docker compose up -d
+# Two modes:
 #
-# Grafana: http://<host>:3000 (anonymous Viewer enabled by default;
-#                              admin / EXPORTER_TARGET-set password to edit)
+# 1) External exporters (default) — the exporter runs on the SAN host
+#    (or anywhere reachable). Targets are declared via EXPORTER_TARGETS
+#    in .env:
+#        EXPORTER_TARGETS=lab=10.12.110.11:9876,prod=10.0.0.5:9876
+#    The name becomes the `group` Prometheus label.
+#        cd deploy && cp .env.example .env && $EDITOR .env
+#        docker compose up -d
+#
+# 2) Full-stack (`--profile full`) — the exporter ALSO runs as a
+#    service in this compose stack. Useful for demos and for sites that
+#    prefer to run everything containerized. Configure with SSV_URL /
+#    SSV_USER / SSV_PASS in .env. Bring up with:
+#        docker compose --profile full up -d --build
+#
+# Grafana:    http://<host>:3000 (anonymous Viewer enabled by default;
+#                                 admin / GF_ADMIN_PASSWORD to edit)
 # Prometheus: http://<host>:9090
-#
-# The exporter target is set via EXPORTER_TARGET in .env. It must be
-# reachable from inside the prometheus container — usually a windows
-# host on the LAN or via Netbird. host.docker.internal works on Linux
-# Docker thanks to the extra_hosts mapping below.
 
 services:
   prometheus:
@@ -34,7 +42,9 @@ services:
             --storage.tsdb.retention.time=15d \
             --web.enable-lifecycle
     environment:
-      EXPORTER_TARGETS: ${EXPORTER_TARGETS:-}
+      # In full-stack mode (--profile full) the `exporter` service below
+      # registers a default target. EXPORTER_TARGETS overrides this.
+      EXPORTER_TARGETS: ${EXPORTER_TARGETS:-${SSV_GROUP:-full}=exporter:9876}
       EXPORTER_TARGET: ${EXPORTER_TARGET:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -56,6 +66,37 @@ services:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/ssv-overview.json
     depends_on:
       - prometheus
+
+  # Full-stack only: the ssv-prom-exporter itself. Only started when
+  # the `full` compose profile is activated:
+  #     docker compose --profile full up -d --build
+  exporter:
+    image: ${EXPORTER_IMAGE:-ghcr.io/lblanc/ssv-prom-exporter:latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles: ["full"]
+    # Internal port only — Prometheus scrapes it on the compose network.
+    # Uncomment the ports mapping below if you want to curl /metrics
+    # from the host while still in --profile full.
+    # ports:
+    #   - "9876:9876"
+    environment:
+      SSV_URL:  ${SSV_URL:?set SSV_URL in .env to use --profile full}
+      SSV_USER: ${SSV_USER:?set SSV_USER in .env to use --profile full}
+      SSV_PASS: ${SSV_PASS:?set SSV_PASS in .env to use --profile full}
+      # Optional knobs — uncomment in .env as needed.
+      SSV_BASES:        ${SSV_BASES:-}
+      SSV_BACKUP_CIDRS: ${SSV_BACKUP_CIDRS:-}
+    command: ["-listen", ":9876"]
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider",
+             "http://127.0.0.1:9876/metrics"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   prometheus-data:

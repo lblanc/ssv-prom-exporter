@@ -1,8 +1,9 @@
 name: Release
 
 # Triggers on annotated/lightweight tags shaped like vX.Y.Z(-suffix).
-# Builds the windows binary and the MSI, then publishes them on a new
-# GitHub Release whose name and tag both come from the pushed tag.
+# Builds the Windows binary + MSI, the Linux tarball, and the multi-arch
+# Docker image, then publishes them on a new GitHub Release whose name
+# and tag both come from the pushed tag.
 
 on:
   push:
@@ -16,6 +17,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
@@ -47,15 +49,19 @@ jobs:
       - name: Build windows binary + MSI
         run: make msi VERSION=${{ steps.tag.outputs.tag }}
 
+      - name: Build linux tarball
+        run: make tarball-linux VERSION=${{ steps.tag.outputs.tag }}
+
       - name: Stage release artifacts
         id: stage
         run: |
           ver="${{ steps.tag.outputs.tag }}"
           ver_bare="${ver#v}"
-          out=dist
+          out=stage
           mkdir -p "$out"
           cp "bin/ssv-prom-exporter.exe" "$out/ssv-prom-exporter-${ver}-windows-amd64.exe"
           cp "bin/ssv-prom-exporter-${ver_bare}-x64.msi" "$out/"
+          cp "dist/ssv-prom-exporter-${ver}-linux-amd64.tar.gz" "$out/"
           (cd "$out" && sha256sum ssv-prom-exporter-* > SHA256SUMS)
           ls -la "$out"
 
@@ -98,6 +104,44 @@ jobs:
           # PR list under the curated body.
           generate_release_notes: true
           files: |
-            dist/ssv-prom-exporter-*.exe
-            dist/ssv-prom-exporter-*.msi
-            dist/SHA256SUMS
+            stage/ssv-prom-exporter-*.exe
+            stage/ssv-prom-exporter-*.msi
+            stage/ssv-prom-exporter-*.tar.gz
+            stage/SHA256SUMS
+
+      # ------------------ Docker image (linux/amd64 + arm64) ------------------
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/ssv-prom-exporter
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=latest
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.tag.outputs.tag }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          build-args: |
+            VERSION=${{ steps.tag.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

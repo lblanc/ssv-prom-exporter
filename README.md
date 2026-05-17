@@ -17,11 +17,14 @@ to run on the SSV host itself.
 - [Install](#install)
   - [From a GitHub Release (recommended)](#from-a-github-release-recommended)
   - [From source](#from-source)
+- [Install on Linux](#install-on-linux)
+- [Run with Docker](#run-with-docker)
 - [Uninstall](#uninstall)
 - [Usage](#usage)
 - [Configuration file](#configuration-file)
 - [Exposed metrics](#exposed-metrics)
 - [Test stack (Prometheus + Grafana)](#test-stack-prometheus--grafana)
+  - [Full stack with the exporter](#full-stack-with-the-exporter)
 - [High availability / failover](#high-availability--failover)
 - [Windows service](#windows-service)
 - [Requirements](#requirements)
@@ -102,8 +105,67 @@ sc start ssv-prom-exporter
 
 ```sh
 make build           # native (the host's GOOS/GOARCH)
+make build-linux     # static linux/amd64 (CGO_ENABLED=0)
 make build-windows   # cross-compile to windows/amd64 (CGO_ENABLED=0)
 make msi             # build the MSI (requires `wixl`, Debian package)
+make tarball-linux   # bundle linux binary + systemd unit + LICENSE + config
+make docker-build    # build the OCI image locally
+```
+
+## Install on Linux
+
+The Linux tarball ships a static binary, a hardened systemd unit, and
+a reference `install-linux.sh` that lays everything out. As **root**:
+
+```sh
+tar xzf ssv-prom-exporter-vX.Y.Z-linux-amd64.tar.gz
+cd     ssv-prom-exporter-vX.Y.Z-linux-amd64
+./install-linux.sh
+$EDITOR /etc/ssv-prom-exporter/config.yaml   # set url / user / pass
+systemctl enable --now ssv-prom-exporter
+```
+
+This places:
+
+- `/usr/local/bin/ssv-prom-exporter` — the static binary.
+- `/etc/systemd/system/ssv-prom-exporter.service` — the systemd unit.
+- `/etc/ssv-prom-exporter/config.yaml` — created from
+  `config.example.yaml` on the first install, never overwritten on
+  upgrade.
+
+The unit runs as a `DynamicUser`, with `ProtectSystem=strict`,
+`NoNewPrivileges`, a `SystemCallFilter`, and tight memory limits.
+Output goes to `journald`:
+
+```sh
+journalctl --unit ssv-prom-exporter -f
+```
+
+## Run with Docker
+
+Pre-built multi-arch images (`linux/amd64` + `linux/arm64`) are
+published on GHCR on every release:
+
+```sh
+docker run --rm -p 9876:9876 \
+    -e SSV_URL=https://10.0.0.1 \
+    -e SSV_USER=administrator \
+    -e SSV_PASS='ChangeMe!' \
+    ghcr.io/lblanc/ssv-prom-exporter:latest
+```
+
+Tags published: `vX.Y.Z`, `X.Y`, `latest`. The image is built on
+`alpine:3` (~34 MB), runs as nonroot uid 65532, embeds `tini` for
+clean SIGTERM forwarding, and ships a `HEALTHCHECK` against
+`/metrics`.
+
+To mount a YAML config instead of passing creds through env vars:
+
+```sh
+docker run --rm -p 9876:9876 \
+    -v /etc/ssv/config.yaml:/etc/ssv-prom-exporter/config.yaml:ro \
+    ghcr.io/lblanc/ssv-prom-exporter:latest \
+    -config /etc/ssv-prom-exporter/config.yaml
 ```
 
 ## Uninstall
@@ -348,6 +410,27 @@ Then:
 Stop the stack with `docker compose down`. Add `-v` to also wipe the
 TSDB and Grafana state.
 
+### Full stack with the exporter
+
+For demos and for sites that prefer to run everything containerized,
+a `full` compose profile runs the exporter as a fourth service
+alongside Prometheus + Grafana. One SSV group, single command, no
+host install needed:
+
+```sh
+cd deploy
+cp .env.example .env
+$EDITOR .env          # set SSV_URL / SSV_USER / SSV_PASS / SSV_GROUP
+docker compose --profile full up -d --build
+```
+
+Prometheus auto-discovers the in-stack exporter (it scrapes
+`exporter:9876` on the compose network), and the `group` label is
+taken from `SSV_GROUP` (default: `full`). The exporter's
+`/metrics` is not published on the host by default — uncomment the
+`ports:` block in `deploy/docker-compose.yml` if you want to curl
+it locally while running under `--profile full`.
+
 ## High availability / failover
 
 The exporter falls over to a backup management server when the primary
@@ -438,8 +521,17 @@ ssv-prom-exporter.exe -uninstall
 - DataCore SANsymphony **PSP 20+** (older versions may work, untested).
 - Network reachability from the exporter host to the SSV management
   server on TCP/443.
-- A Windows or Linux build host (Go 1.26+). MSI builds additionally
-  require the `wixl` Debian package (`apt install wixl`).
+- A target host running:
+  - Windows (any version supported by SSV PSP 20+) for the native
+    Windows service deployment;
+  - any reasonably modern Linux distribution with `systemd` for the
+    Linux systemd deployment (kernel 4.x+, `glibc` not required —
+    the binary is fully static);
+  - or any container host (Linux, Docker Desktop, Kubernetes node…)
+    for the OCI image deployment.
+- A Windows or Linux **build** host (Go 1.26+). MSI builds also need
+  the `wixl` Debian package (`apt install wixl`); Docker images
+  additionally need Docker Buildx (for multi-arch).
 
 ## Notes / gotchas
 

@@ -1,0 +1,72 @@
+[Unit]
+# Native systemd unit for ssv-prom-exporter on Linux. Drop this file at
+# /etc/systemd/system/ssv-prom-exporter.service, then:
+#
+#   systemctl daemon-reload
+#   systemctl enable --now ssv-prom-exporter
+#
+# Configuration lives at /etc/ssv-prom-exporter/config.yaml — see the
+# shipped config.example.yaml. The unit reads no /etc/default override
+# on purpose; credentials should be in the YAML file with 0640 root:ssv-prom
+# permissions, not in environment variables.
+
+Description=Prometheus exporter for DataCore SANsymphony
+Documentation=https://github.com/lblanc/ssv-prom-exporter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# DynamicUser provisions a per-service uid/gid at start, so we don't
+# need a separate `useradd` in the install procedure. State persists in
+# /var/lib/private/ssv-prom-exporter; logs go to journald.
+DynamicUser=yes
+StateDirectory=ssv-prom-exporter
+ConfigurationDirectory=ssv-prom-exporter
+ConfigurationDirectoryMode=0750
+
+ExecStart=/usr/local/bin/ssv-prom-exporter \
+          -config /etc/ssv-prom-exporter/config.yaml
+
+Restart=on-failure
+RestartSec=5s
+
+# Output -> journald (default), captured by the unit name.
+StandardOutput=journal
+StandardError=journal
+
+# ---------- sandboxing ----------
+# The binary needs outbound HTTPS to the SSV mgmt server and an inbound
+# TCP listener on -listen. Nothing else.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+# IPv4 + IPv6 + UNIX sockets are all the binary touches (HTTP server +
+# outbound HTTPS); deny everything else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressAllow=any
+UMask=0077
+
+# ---------- resource limits ----------
+LimitNOFILE=8192
+TasksMax=64
+MemoryHigh=128M
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

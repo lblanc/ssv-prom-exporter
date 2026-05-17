@@ -1,0 +1,31 @@
+# Keep the build context small (sub-10 MB instead of dragging the whole
+# Grafana JSON / docs / out tree into every `docker build`).
+.git/
+.github/
+.idea/
+.vscode/
+*.swp
+
+# Build outputs from local `make build`
+bin/
+dist/
+out/
+
+# Linux-side artifacts the image doesn't need
+deploy/
+packaging/windows/
+packaging/linux/
+
+# Docs / dev assets
+*.md
+docs/
+
+# Allow the LICENSE through — the Dockerfile COPYs it into /licenses.
+!LICENSE
+
+# Allow the config example — the Dockerfile COPYs it into /etc.
+!config.example.yaml
+
+# Don't ship the Dockerfile / dockerignore inside the image
+Dockerfile
+.dockerignore

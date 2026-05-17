@@ -1,8 +1,13 @@
-# Binaries
+# Binaries / build outputs
 /bin/
+/dist/
+/out/
 *.exe
 *.test
 *.out
+
+# Playwright temp directory created by browser_take_screenshot
+.playwright-mcp/
 
 # Local config (may contain secrets)
 /config.yaml

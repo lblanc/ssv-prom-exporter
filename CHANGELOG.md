@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.0] - 2026-05-18
+
+### Added
+- **Linux support.** Static `linux/amd64` binary, systemd unit
+  (`packaging/linux/ssv-prom-exporter.service`) with full sandbox
+  flags (DynamicUser, NoNewPrivileges, ProtectSystem=strict,
+  SystemCallFilter=@system-service, RestrictAddressFamilies, memory /
+  task limits), and a reference `install-linux.sh` that lays out
+  `/usr/local/bin/ssv-prom-exporter` +
+  `/etc/ssv-prom-exporter/config.yaml` + the unit file in one step.
+  New `make build-linux` and `make tarball-linux` targets; the release
+  workflow now attaches `ssv-prom-exporter-vX.Y.Z-linux-amd64.tar.gz`
+  alongside the Windows binary and MSI.
+- **Docker image.** Multi-stage `Dockerfile` (alpine builder →
+  alpine runtime, ~34 MB final), runs as nonroot uid 65532, listens on
+  `:9876`, embeds `tini` for clean SIGTERM forwarding and a `wget`
+  `HEALTHCHECK` against `/metrics`. New `make docker-build` /
+  `make docker-push` targets pushing to
+  `ghcr.io/lblanc/ssv-prom-exporter:{vX.Y.Z,latest,X.Y}`. CI gained a
+  `docker build` step (no push) so the Dockerfile is gated on every
+  push; the release workflow builds and pushes a multi-arch
+  (`linux/amd64` + `linux/arm64`) image on every tag.
+- **Full-stack `docker compose`.** New `full` compose profile in
+  `deploy/docker-compose.yml` runs the exporter as a fourth service
+  alongside Prometheus + Grafana. One-command demo against a single
+  SSV group:
+      `SSV_URL=... SSV_USER=... SSV_PASS=... \`
+      `docker compose --profile full up -d --build`
+  Without the profile, the historical multi-target external-exporter
+  flow (`EXPORTER_TARGETS=name=host:port,...`) is unchanged.
+
+### Changed
+- `deploy/.env.example` now documents both scenarios (external
+  exporters vs full-stack) side by side.
+- README gains "Install on Linux", "Run with Docker", and "Run the
+  full stack" sections.
+
+[v0.8.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.8.0
+
 ## [v0.6.0] - 2026-05-06
 
 ### Added
