@@ -44,6 +44,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [v0.8.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.8.0
 
+## [v0.7.0] - 2026-05-07
+
+### Added
+- **Session-based auth** in the REST client. Each
+  `(baseURL, ServerHost)` endpoint opens `/sessions` once with the
+  literal `Basic <user> <pass>` form (NOT base64), caches the token,
+  and rides every subsequent request on
+  `Authorization: Token <token>` (NOT `Bearer`). Transparent
+  re-auth on HTTP 401; explicit revocation on shutdown via
+  `Client.Close()`. `SetBackups` now preserves session tokens for
+  endpoints that survive the rebuild (matched on
+  `(baseURL, ServerHost)`).
+- **JSON-fault parsing** on `HTTPError`. SSV's WCF
+  `{"ErrorCode": int, "ErrorMessage": string}` payload lands on the
+  typed `Code` / `Message` fields and surfaces in `Error()`; the
+  raw body is still kept for non-JSON intermediaries.
+- **NullCounterMap honored explicitly** in `Performance()` — both
+  the object (`{name: bool}`) and array (`[name, ...]`) shapes are
+  accepted defensively, so counters the SSV API flags as
+  unavailable are skipped instead of emitted as fake zeros.
+
+### Tests
+- 10 / 10 green. Five new tests cover token caching + `Basic u p`
+  literal auth, 401 reauth-and-retry, persistent 401 propagation,
+  JSON-fault parsing, and NullCounterMap filtering.
+
+[v0.7.0]: https://github.com/lblanc/ssv-prom-exporter/releases/tag/v0.7.0
+
 ## [v0.6.0] - 2026-05-06
 
 ### Added
