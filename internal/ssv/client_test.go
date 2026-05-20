@@ -356,6 +356,94 @@ func TestNullCounterMap_SkipsListedCounters(t *testing.T) {
 	}
 }
 
+// TestSession_ReauthsOnStale400 verifies that an HTTP 400 carrying the
+// stale-token marker triggers a single reauth + retry, just like a 401.
+// PSP 20+ returns this shape (not 401) when a previously valid session
+// token has been invalidated server-side.
+func TestSession_ReauthsOnStale400(t *testing.T) {
+	var opens atomic.Int32
+	var gets atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == apiPathV1+"/sessions" && r.Method == http.MethodPost {
+			var b struct{ Operation string }
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			if b.Operation == "OpenSession" {
+				n := opens.Add(1)
+				_, _ = w.Write([]byte(`{"Token":"tok-` + itoa(int(n)) + `"}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		n := gets.Add(1)
+		if n == 1 {
+			http.Error(w,
+				`{"ErrorCode":12,"ErrorMessage":"Passed token is not valid for this connection."}`,
+				http.StatusBadRequest)
+			return
+		}
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, 0)
+	body, err := c.GetRaw(context.Background(), "serverGroups")
+	if err != nil {
+		t.Fatalf("GetRaw: %v", err)
+	}
+	if string(body) != `{"ok":true}` {
+		t.Fatalf("body: %q", body)
+	}
+	if got := opens.Load(); got != 2 {
+		t.Fatalf("OpenSession count = %d, want 2 (initial + reauth)", got)
+	}
+	if got := gets.Load(); got != 2 {
+		t.Fatalf("GET count = %d, want 2 (failed + retried)", got)
+	}
+}
+
+// TestSession_Throttle400DoesNotReopen guarantees the client does NOT
+// reauth on SSV's "Too many requests…" throttle response: retrying would
+// just escalate the server-side throttle window. The 400 must propagate.
+func TestSession_Throttle400DoesNotReopen(t *testing.T) {
+	var opens atomic.Int32
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == apiPathV1+"/sessions" && r.Method == http.MethodPost {
+			var b struct{ Operation string }
+			_ = json.NewDecoder(r.Body).Decode(&b)
+			if b.Operation == "OpenSession" {
+				opens.Add(1)
+				_, _ = w.Write([]byte(`{"Token":"tok"}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.Error(w,
+			`{"ErrorCode":50,"ErrorMessage":"Too many requests with wrong credentials/token. You must wait 30 seconds before retrying."}`,
+			http.StatusBadRequest)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, 0)
+	_, err := c.GetRaw(context.Background(), "serverGroups")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var herr *HTTPError
+	if !errors.As(err, &herr) {
+		t.Fatalf("err = %v, want HTTPError", err)
+	}
+	if herr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("StatusCode = %d, want 400", herr.StatusCode)
+	}
+	if got := opens.Load(); got != 1 {
+		t.Fatalf("OpenSession count = %d, want 1 (no reauth on throttle)", got)
+	}
+}
+
 // itoa avoids pulling strconv solely for the reauth test.
 func itoa(n int) string {
 	if n == 0 {

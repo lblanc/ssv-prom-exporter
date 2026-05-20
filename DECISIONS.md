@@ -246,6 +246,31 @@ Trade-off: silent fallback when the body isn't JSON (some error
 intermediaries — IIS itself, a reverse proxy — may emit plain text or
 HTML). The raw body remains available, so nothing is lost.
 
+### Reauth triggered by either 401 OR 400 + stale-token marker
+Decision: the auth-retry helper (`isStaleSession`, renamed from
+`isUnauthorized`) considers a response "stale" if either (a) HTTP 401,
+or (b) HTTP 400 with body containing `"Passed token is not valid for
+this connection."`. The 400-with-marker case triggers exactly one
+silent reopen + retry, the same path the 401 case has always taken.
+Rationale: empirical — SANsymphony's REST surface does return HTTP 400
+(NOT 401) when a previously valid token is invalidated server-side,
+contrary to what RFC 7235 / the documented 401 expiry path suggest.
+This was first surfaced by `ssa-collector` during a 30 h lab run on
+2026-05-17 (fixed there in `bac55f9`) and then hit `ssv-prom-exporter`
+on 2026-05-20 in both lab groups simultaneously after ~26 h of uptime.
+With only-401 matching, the exporter never reauthed, kept presenting
+the dead token, and got `ssv_up=0` forever on every collector.
+The marker (`staleTokenMarker = "Passed token is not valid for this
+connection"`) is matched as a substring of `HTTPError.Message` first,
+falling back to `HTTPError.Body` if the JSON fault did not decode
+cleanly.
+Trade-off: the throttle response (`"Too many requests with wrong
+credentials/token. You must wait N seconds…"`) is also a 400 — if we
+ever broaden the matcher beyond the stale-token marker, we risk
+retrying into the throttle window and escalating it. Guarded by an
+explicit regression test (`TestSession_Throttle400DoesNotReopen`) that
+asserts a single OpenSession on that body.
+
 ### NullCounterMap honored explicitly in Performance()
 Decision: `Performance()` reads SSV's `NullCounterMap` field on each
 `/performance/{id}` snapshot and skips counters listed there, instead

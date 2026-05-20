@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Session reauth on stale-token 400.** SANsymphony returns HTTP 400
+  with body `"Passed token is not valid for this connection."` when a
+  cached session token is invalidated server-side — not 401 as the
+  documented expiry path suggests. The client's stale-session detector
+  was only matching 401, so after server-side invalidation both labs
+  silently stopped collecting (`ssv_up=0` on all three collectors,
+  fast-fail in < 25 ms). `isUnauthorized` has been renamed to
+  `isStaleSession` and now matches either 401 or 400 carrying the
+  stale-token marker. The throttle response (`"Too many requests
+  with wrong credentials/token. You must wait N seconds…"`) is
+  deliberately NOT matched — retrying on it would escalate the
+  server-side throttle. Two regression tests added:
+  `TestSession_ReauthsOnStale400`, `TestSession_Throttle400DoesNotReopen`.
+  This is the same bug `ssa-collector` hit in its 30 h lab run on
+  2026-05-17 (fixed there in `bac55f9`).
+
 ## [v0.8.0] - 2026-05-18
 
 ### Added

@@ -441,11 +441,13 @@ func (c *Client) markPreferred(idx int) {
 }
 
 // getOne issues one GET against ep. It transparently re-authenticates
-// once on HTTP 401 (treated as "token expired"); a second 401 is
-// returned to the caller as a non-transient error.
+// once on a stale-session response (HTTP 401, or HTTP 400 carrying
+// SSV's "Passed token is not valid for this connection." marker); a
+// second stale-session response is returned to the caller as a
+// non-transient error.
 func (c *Client) getOne(ctx context.Context, ep *endpoint, path string) ([]byte, error) {
 	body, err := c.doGet(ctx, ep, path)
-	if !isUnauthorized(err) {
+	if !isStaleSession(err) {
 		return body, err
 	}
 	c.invalidateToken(ep)
@@ -803,12 +805,30 @@ func isTransient(err error) bool {
 	return true
 }
 
-// isUnauthorized reports whether err is an HTTPError carrying a 401.
-// Used by getOne to trigger a single re-auth before propagating.
-func isUnauthorized(err error) bool {
+// staleTokenMarker is the body substring SSV returns on HTTP 400 when a
+// previously valid session token has been invalidated server-side. The
+// status code (400, not 401) is at odds with the documented 401 expiry
+// path, so the client matches both shapes. Observed against PSP 20+ and
+// reproduced in the ssa-collector lab on 2026-05-17.
+const staleTokenMarker = "Passed token is not valid for this connection"
+
+// isStaleSession reports whether err signals a session-token problem
+// that one re-auth would fix. Two shapes are matched: HTTP 401 (the
+// documented expiry path) and HTTP 400 carrying staleTokenMarker. The
+// throttle response ("Too many requests with wrong credentials/token.
+// You must wait N seconds…") is deliberately NOT matched — retrying
+// on it would escalate the server-side throttle window.
+func isStaleSession(err error) bool {
 	var herr *HTTPError
-	if errors.As(err, &herr) {
-		return herr.StatusCode == http.StatusUnauthorized
+	if !errors.As(err, &herr) {
+		return false
+	}
+	if herr.StatusCode == http.StatusUnauthorized {
+		return true
+	}
+	if herr.StatusCode == http.StatusBadRequest {
+		return strings.Contains(herr.Message, staleTokenMarker) ||
+			strings.Contains(herr.Body, staleTokenMarker)
 	}
 	return false
 }
