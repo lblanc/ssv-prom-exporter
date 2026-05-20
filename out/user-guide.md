@@ -251,7 +251,7 @@ deployment modes are supported through compose profiles.
 
 [`deploy/`]: https://github.com/lblanc/ssv-prom-exporter/tree/main/deploy
 
-## Mode 1 — External exporters (default)
+## External exporters (default)
 
 Prometheus + Grafana run from compose; the exporter runs elsewhere
 (typically on each SAN host).
@@ -266,7 +266,7 @@ docker compose up -d
 `EXPORTER_TARGETS=lab=10.0.0.10:9876,prod=10.1.0.10:9876` declares
 two targets; each name becomes the `group` Prometheus label.
 
-## Mode 2 — Full stack (`--profile full`)
+## Full stack with the exporter (`--profile full`)
 
 The exporter ALSO runs as a service in the compose stack. Useful for
 demos and for sites that prefer to run everything containerized.

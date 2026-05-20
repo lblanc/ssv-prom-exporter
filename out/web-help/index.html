@@ -946,7 +946,7 @@ ssv_up{collector=<span class="s">"performance"</span>} 1</pre>
       supported through compose profiles.
     </p>
 
-    <h3>Mode 1 — External exporters (default profile)</h3>
+    <h3>External exporters (default profile)</h3>
     <p>
       Prometheus + Grafana run from compose; the exporter runs
       elsewhere (typically on each SAN host).
@@ -962,7 +962,7 @@ docker compose up -d</pre>
       template variable.
     </p>
 
-    <h3>Mode 2 — Full stack (<code>--profile full</code>)</h3>
+    <h3>Full stack with the exporter (<code>--profile full</code>)</h3>
     <p>
       The exporter <strong>also</strong> runs as a service in the
       compose stack. Useful for demos and for sites that prefer to run
