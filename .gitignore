@@ -1,10 +1,18 @@
 # Binaries / build outputs
 /bin/
 /dist/
-/out/
 *.exe
 *.test
 *.out
+
+# /out/ holds source-of-truth deliverables (user-guide.md, web-help/)
+# AND throw-away build artifacts (PRD PDFs, deck, screenshots,
+# intermediate previews). Default to ignored; allowlist the
+# user-facing pieces we want versioned.
+/out/*
+!/out/user-guide.md
+!/out/user-guide.pdf
+!/out/web-help/
 
 # Playwright temp directory created by browser_take_screenshot
 .playwright-mcp/
