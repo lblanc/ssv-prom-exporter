@@ -6,8 +6,8 @@
 > **Region / Territory:** EMEA
 > **Prototype type:** [ ] New standalone feature  [ ] Enhancement to existing  [x] Third-party integration  [ ] Sizing / tooling
 > **Prototype link:** https://github.com/lblanc/ssv-prom-exporter
-> **Doc version:** 1.0
-> **Status:** Ready for PM review
+> **Doc version:** 1.1
+> **Status:** Ready for PM review — v0.8.0 cut 2026-05-20
 
 ---
 
@@ -98,7 +98,7 @@ The gap is also visible on the dashboard side: cross-cutting views (vDisk latenc
 
 ### 4.1 Solution summary
 
-A single Go binary that runs as a Windows service, Linux systemd unit, or container, and exposes SANsymphony metrics on a standard Prometheus `/metrics` endpoint. Three independent collector tiers (inventory, health, performance) keep refresh rates aligned with each signal's volatility. Three production-grade packagings (MSI, Linux tarball, OCI image) match how customers actually deploy infrastructure components today. Five Grafana dashboards (Overview / Servers / Storage / Ports / Hosts) are bundled and provisioned automatically in a `docker-compose --profile full` stack, so a POC takes one `docker compose up`. The exporter has been validated end-to-end against a PSP 20 lab (~470 ms perf scrape, ~470 series across the three collectors). v0.8 is feature-complete on `main`; v0.8.0 tag is the next release step.
+A single Go binary that runs as a Windows service, Linux systemd unit, or container, and exposes SANsymphony metrics on a standard Prometheus `/metrics` endpoint. Three independent collector tiers (inventory, health, performance) keep refresh rates aligned with each signal's volatility. Three production-grade packagings (MSI, Linux tarball, OCI image) match how customers actually deploy infrastructure components today. Five Grafana dashboards (Overview / Servers / Storage / Ports / Hosts) are bundled and provisioned automatically in a `docker-compose --profile full` stack, so a POC takes one `docker compose up`. The exporter has been validated end-to-end against a PSP 20 lab (~470 ms perf scrape, ~470 series across the three collectors). **v0.8.0 was cut on 2026-05-20**, after a late stale-session reauth fix surfaced by a 26 h cross-lab uptime test: SANsymphony returns HTTP 400 (not 401) when a cached session token is invalidated server-side, and the client now matches both shapes.
 
 ### 4.2 User stories
 
@@ -127,8 +127,9 @@ So that the prospect sees DataCore Prometheus + Grafana in 5 minutes.
 - [x] AC6: Session-based auth matching the official SSV SPA contract (`/sessions` Basic + `Token <token>`, 401 reauth).
 - [x] AC7: Bundled Prometheus + Grafana demo stack with three provisioned dashboards.
 - [x] AC8: Multi-arch OCI image (~34 MB) published to GHCR by the release workflow.
-- [ ] AC9: PSP 21 / 22 validation — confirm session-auth flow and perf endpoint shape on newer releases.
-- [ ] AC10: Custom CA pool flag (operator can flip `-insecure` off in sites with internal PKI).
+- [x] AC9: Stale-session reauth fix — client matches both HTTP 401 and HTTP 400 + `"Passed token is not valid for this connection."` (PSP 20 contract). Two regression tests; surfaced by a 26 h cross-lab uptime test on 2026-05-20.
+- [ ] AC10: PSP 21 / 22 validation — confirm session-auth flow and perf endpoint shape on newer releases.
+- [ ] AC11: Custom CA pool flag (operator can flip `-insecure` off in sites with internal PKI).
 
 ### 4.4 Out of scope
 
@@ -173,6 +174,7 @@ So that the prospect sees DataCore Prometheus + Grafana in 5 minutes.
 > Engineering needs to know what corners were cut to assess real build effort.
 
 - **`-insecure` defaults to `true`** — SSV management servers ship with self-signed certs in most deployments. A custom CA pool flag is planned (already on the roadmap) so operators with an internal PKI can flip verification on.
+- **Stale-session reauth path is empirical, not documented.** SANsymphony returns HTTP 400 (not 401) with body `"Passed token is not valid for this connection."` when a previously valid token is invalidated server-side. The client matches both shapes; if a future PSP changes the message text, the marker (`staleTokenMarker` in `internal/ssv/client.go`) needs to be extended. The throttle response (`"Too many requests with wrong credentials/token. You must wait N seconds…"`) is also a 400 but deliberately NOT matched to avoid escalating the throttle window — covered by `TestSession_Throttle400DoesNotReopen`.
 - **PSP 21 / 22 not yet validated**. The current implementation runs against PSP 20. Session-auth flow, ServerHost header, and `/performance/{id}` shape are expected to be stable, but a sanity check on each newer release is still pending.
 - **No vendor-enum mapping for state metrics in v0.8**. State values surface as raw numeric codes (`ssv_server_state`, `ssv_pool_status`, `ssv_host_state`, …); dashboards translate via Grafana value mappings today. Engineering may decide whether to ship enum tables or expose them as `_info` metrics.
 - **Pool extras not yet exposed**: `EstimatedDepletionTime`, `MaxTierNumber`, `TierReservedPct`, `InSharedMode`. Surfaced by the inspiration Grafana boards but missing from v0.8.
@@ -235,6 +237,7 @@ The exporter is shaped to land in DataCore's product portfolio as a supported co
 |---------|------|--------|---------|
 | 0.1 | 20/05/2026 | Luc Blanc | Initial draft, pre-filled sections 1, 4, 5 from project context + DECISIONS.md; sections 2, 3, 6 pending field input |
 | 1.0 | 20/05/2026 | Luc Blanc | Filled in prose sections 2.2, 3.1, 3.2, 6.3 from project context; only field-specific numerics (account name, ARR, deal name) left as placeholders |
+| 1.1 | 20/05/2026 | Luc Blanc | v0.8.0 cut; AC9 added (stale-session reauth fix on 400 + marker); §5.3 mentions the empirical reauth contract; AC10 / AC11 reshuffled from previous AC9 / AC10 |
 
 ---
 
