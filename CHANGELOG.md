@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.8.0] - 2026-05-20
 
 ### Fixed
 - **Session reauth on stale-token 400.** SANsymphony returns HTTP 400
@@ -23,8 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TestSession_ReauthsOnStale400`, `TestSession_Throttle400DoesNotReopen`.
   This is the same bug `ssa-collector` hit in its 30 h lab run on
   2026-05-17 (fixed there in `bac55f9`).
-
-## [v0.8.0] - 2026-05-18
 
 ### Added
 - **Linux support.** Static `linux/amd64` binary, systemd unit
