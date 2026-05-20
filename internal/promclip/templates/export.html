@@ -1,0 +1,92 @@
+{{template "header" .}}
+
+<div class="card">
+  <h2>Export a time window to OpenMetrics</h2>
+  {{if not .Source.URL}}
+    <div class="flash" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca">
+      No source Prometheus configured. <a href="/">Set one first.</a>
+    </div>
+  {{else}}
+    <p class="hint">Reading from <strong>{{.Source.URL}}</strong>.</p>
+    <form method="post" action="/export">
+      <div class="row">
+        <div>
+          <label>From (local time)</label>
+          <input type="datetime-local" name="from" required>
+        </div>
+        <div>
+          <label>To (local time)</label>
+          <input type="datetime-local" name="to" required>
+        </div>
+      </div>
+      <div class="button-row">
+        <button type="button" class="secondary" onclick="setWindow(1)">Last hour</button>
+        <button type="button" class="secondary" onclick="setWindow(24)">Last 24h</button>
+        <button type="button" class="secondary" onclick="setWindow(24*7)">Last 7d</button>
+        <button type="button" class="secondary" onclick="setWindow(24*30)">Last 30d</button>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Step (resolution)</label>
+          <input type="text" name="step" value="30s" required>
+          <div class="hint">Go duration: <span class="kbd">15s</span>, <span class="kbd">1m</span>, <span class="kbd">5m</span>…</div>
+        </div>
+        <div>
+          <label>Metric name regex (optional)</label>
+          <input type="text" name="regex" value="ssv_.*" placeholder=".+">
+          <div class="hint">Anchored on both ends.</div>
+        </div>
+      </div>
+
+      <label>Output filename</label>
+      <input type="text" name="output" placeholder="prom-clip-{timestamp}.txt.gz">
+      <div class="hint">Relative names land in <span class="kbd">{{.OutputDir}}</span>. Absolute paths are used as-is.</div>
+
+      <label><input type="checkbox" name="s3" value="1"> Also upload to S3 via <span class="kbd">proj put</span></label>
+      <label><input type="checkbox" name="s3_public" value="1"> &nbsp;&nbsp;Use the public-share bucket (direct URL, no expiry)</label>
+
+      <div class="button-row">
+        <button type="submit">Start export</button>
+        <button type="button" class="secondary" onclick="preview(this)">Preview matching metrics</button>
+      </div>
+      <div class="test-result" data-side="preview"></div>
+    </form>
+  {{end}}
+</div>
+
+<script>
+function pad(n) { return String(n).padStart(2,'0'); }
+function localISO(d) {
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+
+         'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+function setWindow(hours) {
+  const now = new Date();
+  const from = new Date(now.getTime() - hours*3600*1000);
+  document.querySelector('input[name=from]').value = localISO(from);
+  document.querySelector('input[name=to]').value   = localISO(now);
+}
+async function preview(btn) {
+  const form = btn.closest('form');
+  const params = new URLSearchParams(new FormData(form)).toString();
+  const out = form.querySelector('.test-result[data-side="preview"]');
+  out.textContent = 'querying…';
+  try {
+    const r = await fetch('/preview', {
+      method: 'POST',
+      body: params,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const t = await r.text();
+    out.textContent = t;
+    out.style.color = r.ok ? '' : 'var(--err)';
+  } catch (e) {
+    out.textContent = 'network error: ' + e;
+    out.style.color = 'var(--err)';
+  }
+}
+// Default the window to the last hour.
+setWindow(1);
+</script>
+{{template "footer" .}}

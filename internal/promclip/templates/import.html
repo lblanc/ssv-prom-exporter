@@ -1,0 +1,28 @@
+{{template "header" .}}
+
+<div class="card">
+  <h2>Import an OpenMetrics file via remote write</h2>
+  {{if not .Target.URL}}
+    <div class="flash" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca">
+      No target Prometheus configured. <a href="/">Set one first.</a>
+    </div>
+  {{else}}
+    <p class="hint">Writing to <strong>{{.Target.URL}}</strong> at <span class="kbd">/api/v1/write</span>.
+      The target Prometheus must have been started with <span class="kbd">--web.enable-remote-write-receiver</span>.</p>
+    <form method="post" action="/import">
+      <label>Input file</label>
+      <input type="text" name="input" placeholder="prom-clip-20260520-140000.txt.gz" required>
+      <div class="hint">Relative names are looked up in <span class="kbd">{{.OutputDir}}</span>.
+        Files produced by Export carry their own timestamps; the target will reject samples older than its
+        out-of-order ingestion window unless <span class="kbd">tsdb.out_of_order_time_window</span> is set high enough.</div>
+
+      <label>Batch size (series per WriteRequest)</label>
+      <input type="number" name="batch" value="500" min="1" max="10000">
+
+      <div class="button-row">
+        <button type="submit">Start import</button>
+      </div>
+    </form>
+  {{end}}
+</div>
+{{template "footer" .}}

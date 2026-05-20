@@ -286,6 +286,40 @@ Trade-off: a counter genuinely set to `null` AND missing from
 `NullCounterMap` is silently dropped. That's strictly better than
 emitting a fake zero; consumers re-running rate() see the absence.
 
+### `prom-clip` lives in this repo, not in a separate one
+Decision: ship the prom-clip web UI as a second binary
+(`cmd/prom-clip/` + `internal/promclip/`) inside this repo, sharing
+its `go.mod` and CI.
+Rationale: prom-clip is not SSV-specific (it talks to any
+Prometheus), but its primary use case is shipping the time-windowed
+output of *this* exporter — to DataCore support, demos, or another
+PoC site without lab access. Co-locating cuts the cost of a second
+repo (CI, releases, README) while keeping the package boundary
+clean: `internal/promclip` does not import anything from
+`internal/ssv` or `internal/collectors`.
+Trade-off: the repo's surface area widens; a future user expecting
+"SSV exporter only" sees an extra binary. Mitigated by the
+short prom-clip blurb in PROJECT_CONTEXT.md and a clear separation
+in the Makefile (`build` vs `build-prom-clip`).
+
+### Hand-rolled protobuf encoder for the remote-write payload
+Decision: `internal/promclip/protowrite.go` encodes
+`WriteRequest`/`TimeSeries`/`Label`/`Sample` directly in proto wire
+format, rather than depending on `github.com/prometheus/prometheus`
+for its `prompb` package.
+Rationale: the full Prometheus module drags dozens of unrelated
+transitive deps (TSDB, scrape manager, rule engine, alerting,
+service discovery) — adding hundreds of MB of compile cost and a
+massive binary just to call `proto.Marshal(&WriteRequest{...})`.
+The four messages we need have a trivial schema (3 message types,
+5 fields total) that hand-rolls in ~100 lines, plus the
+already-tiny `github.com/golang/snappy` for compression.
+Trade-off: any future change to the remote-write schema (e.g.
+remote-write 2.0 `MetadataV2`, `Exemplar`, native histograms) means
+extending the encoder by hand. Acceptable: remote-write 1.0 has
+been frozen for years, and the encoder is small enough to re-read
+end-to-end before any change.
+
 ## What to watch out for
 - The `ServerHost` HTTP header is mandatory on every REST call. Without
   it, the API returns 400 with `ErrorCode 9` (`"No ServerHost header was
@@ -310,3 +344,12 @@ emitting a fake zero; consumers re-running rate() see the absence.
   hostnames published in `/servers[].HostName` (e.g. `SDS1-LAB-PVE`) are
   rejected with HTTP 400, even when reaching the right physical host.
   This is why each failover endpoint stores its own `ServerHost = IP`.
+- `prom-clip` import requires the target Prometheus to be started with
+  `--web.enable-remote-write-receiver` AND to have
+  `storage.tsdb.out_of_order_time_window` set in its YAML config
+  (e.g. `7d`). The matching CLI flag does not exist —
+  `--storage.tsdb.out-of-order-time-window` is rejected at startup with
+  `unknown long flag`. Without an OOO window, any sample older than the
+  current head block (~2h) is dropped silently as
+  `out_of_order_sample`, and the import reports success even though
+  nothing landed.

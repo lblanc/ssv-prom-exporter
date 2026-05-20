@@ -290,3 +290,24 @@ boards had panels we couldn't fill from current metrics). Expose:
   rebuilt automatically from sources under `out/`
   (`build_deck.py`, `pdf-style.css`, `architecture.dot`,
   `user-guide.md`).
+- 2026-05-20 — `prom-clip` companion tool (`cmd/prom-clip/` +
+  `internal/promclip/`). Small web UI on `:8088` with four pages
+  (Connection / Export / Import / Status). Export queries a source
+  Prometheus over `/api/v1/query_range` for every metric matching an
+  optional regex over `[from, to]` at a chosen step, writes a
+  gzipped OpenMetrics file (TYPE/HELP/UNIT headers, deterministic
+  sort by label set then timestamp, OpenMetrics-spec timestamps in
+  seconds, `# EOF` terminator). Import streams the file back and
+  replays it into a target Prometheus via the remote-write protocol
+  (`/api/v1/write`, snappy-compressed protobuf, batched per 500
+  series). State (last source/target connection + 50 last runs)
+  persisted as JSON under `~/.local/state/prom-clip/state.json`
+  (chmod 600). Optional S3 push on export via shell-out to
+  `proj put` (private 24h presigned URL) or `proj put --public`.
+  New Makefile targets `build-prom-clip`, `build-prom-clip-linux`,
+  `run-prom-clip`. New direct dep: `github.com/golang/snappy v1.0.0`.
+  Smoke-tested end-to-end against the `deploy/` Prometheus +
+  a throwaway target Prometheus on `:9091` started with
+  `--web.enable-remote-write-receiver` and
+  `storage.tsdb.out_of_order_time_window: 7d` in its YAML — 14
+  series / 434 samples round-tripped cleanly.

@@ -16,7 +16,8 @@ IMAGE          := $(IMAGE_REGISTRY)/$(IMAGE_NAME)
 IMAGE_TAG      ?= $(VERSION)
 
 .PHONY: build build-linux build-windows run-ping clean tidy vet test msi \
-        tarball-linux docker-build docker-push
+        tarball-linux docker-build docker-push \
+        build-prom-clip build-prom-clip-linux run-prom-clip
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN)/$(BINARY) $(PKG)
@@ -30,6 +31,20 @@ build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 	  go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" \
 	  -o $(BIN)/$(BINARY)-linux-amd64 $(PKG)
+
+# prom-clip: small web tool that exports a Prometheus time-window to
+# OpenMetrics (.txt.gz) and replays it into another Prometheus via
+# remote write. Independent of SSV; lives in this repo for convenience.
+build-prom-clip:
+	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN)/prom-clip ./cmd/prom-clip
+
+build-prom-clip-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+	  go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" \
+	  -o $(BIN)/prom-clip-linux-amd64 ./cmd/prom-clip
+
+run-prom-clip: build-prom-clip
+	./$(BIN)/prom-clip -listen :8088
 
 run-ping: build
 	./$(BIN)/$(BINARY) -ping

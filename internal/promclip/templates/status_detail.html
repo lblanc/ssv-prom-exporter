@@ -1,0 +1,44 @@
+{{template "header" .}}
+
+<div class="card">
+  <h2>Run {{.Run.ID}}</h2>
+  {{if eq .Run.Status "running"}}
+    <meta http-equiv="refresh" content="3">
+  {{end}}
+
+  <table>
+    <tr><th style="width:160px">Kind</th><td>{{.Run.Kind}}</td></tr>
+    <tr><th>Status</th><td><span class="status-{{.Run.Status}}">{{.Run.Status}}</span></td></tr>
+    <tr><th>Started</th><td>{{fmtTime .Run.StartedAt}}</td></tr>
+    <tr><th>Finished</th><td>{{fmtTimePtr .Run.FinishedAt}}</td></tr>
+    <tr><th>Duration</th><td>{{fmtDuration .Run.StartedAt .Run.FinishedAt}}</td></tr>
+
+    {{if eq .Run.Kind "export"}}
+      <tr><th>Source</th><td>{{.Run.SourceURL}}</td></tr>
+      <tr><th>From</th><td>{{fmtTime .Run.From}}</td></tr>
+      <tr><th>To</th><td>{{fmtTime .Run.To}}</td></tr>
+      <tr><th>Step</th><td>{{.Run.Step}}</td></tr>
+      <tr><th>Metric regex</th><td>{{.Run.MetricRegex}}</td></tr>
+      <tr><th>Output file</th><td><span class="kbd">{{.Run.OutputPath}}</span></td></tr>
+      <tr><th>Size</th><td>{{fmtBytes .Run.Bytes}}</td></tr>
+      {{if .Run.ShareURL}}<tr><th>S3 URL</th><td><a href="{{.Run.ShareURL}}">{{.Run.ShareURL}}</a></td></tr>{{end}}
+    {{else}}
+      <tr><th>Target</th><td>{{.Run.TargetURL}}</td></tr>
+      <tr><th>Input file</th><td><span class="kbd">{{.Run.InputPath}}</span></td></tr>
+    {{end}}
+
+    <tr><th>Series</th><td>{{.Run.Series}}</td></tr>
+    <tr><th>Samples</th><td>{{.Run.Samples}}</td></tr>
+    {{if .Run.Error}}<tr><th>Error</th><td style="color:var(--err)"><pre>{{.Run.Error}}</pre></td></tr>{{end}}
+  </table>
+
+  <div class="button-row">
+    <a class="btn secondary" href="/status">Back</a>
+    {{if eq .Run.Status "running"}}
+      <form method="post" action="/cancel/{{.Run.ID}}" style="display:inline">
+        <button type="submit" class="danger">Cancel</button>
+      </form>
+    {{end}}
+  </div>
+</div>
+{{template "footer" .}}

@@ -1,0 +1,36 @@
+{{template "header" .}}
+
+<div class="card">
+  <h2>Runs</h2>
+  {{if .Runs}}
+    <table>
+      <thead>
+        <tr>
+          <th>Started</th>
+          <th>Kind</th>
+          <th>Status</th>
+          <th>Series</th>
+          <th>Samples</th>
+          <th>Duration</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Runs}}
+          <tr>
+            <td>{{fmtTime .StartedAt}}</td>
+            <td>{{.Kind}}</td>
+            <td><span class="status-{{.Status}}">{{.Status}}</span></td>
+            <td>{{.Series}}</td>
+            <td>{{.Samples}}</td>
+            <td>{{fmtDuration .StartedAt .FinishedAt}}</td>
+            <td><a href="/status/{{.ID}}">details</a></td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  {{else}}
+    <p class="muted">No runs yet. Try an <a href="/export">export</a>.</p>
+  {{end}}
+</div>
+{{template "footer" .}}
