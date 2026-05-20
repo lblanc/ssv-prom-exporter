@@ -614,6 +614,43 @@ func (c *Client) Servers(ctx context.Context) ([]Server, error) {
 	return v, c.Get(ctx, "servers", &v)
 }
 
+// LocalServers returns the subset of /servers belonging to the local
+// SSV group — the one flagged OurGroup=true in /serverGroups. SSV
+// federates server-group state across peers, so /servers can also
+// surface nodes from remote groups (compound ID
+// "<remote-group-uuid>:<server-uuid>"); /performance returns no data
+// for them and most descriptive fields are empty, so they only add
+// noise. When no group is flagged OurGroup the full list is returned
+// unchanged (defensive fallback — single-group installs should never
+// hit this).
+func (c *Client) LocalServers(ctx context.Context) ([]Server, error) {
+	groups, err := c.ServerGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	servers, err := c.Servers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var localID string
+	for _, g := range groups {
+		if g.OurGroup {
+			localID = g.ID
+			break
+		}
+	}
+	if localID == "" {
+		return servers, nil
+	}
+	out := make([]Server, 0, len(servers))
+	for _, s := range servers {
+		if s.GroupID == localID {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
 func (c *Client) Pools(ctx context.Context) ([]Pool, error) {
 	var v []Pool
 	return v, c.Get(ctx, "pools", &v)

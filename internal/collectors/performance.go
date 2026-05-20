@@ -219,7 +219,7 @@ type perfJob struct {
 func (c *Performance) CollectMetrics(ctx context.Context, ch chan<- prometheus.Metric) bool {
 	// Inventory lookup. Errors here return early — without IDs we have
 	// nothing to emit.
-	servers, sErr := c.client.Servers(ctx)
+	servers, sErr := c.client.LocalServers(ctx)
 	pools, pErr := c.client.Pools(ctx)
 	vdisks, vErr := c.client.VirtualDisks(ctx)
 	hosts, hErr := c.client.Hosts(ctx)

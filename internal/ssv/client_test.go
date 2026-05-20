@@ -444,6 +444,73 @@ func TestSession_Throttle400DoesNotReopen(t *testing.T) {
 	}
 }
 
+// TestLocalServers_FiltersForeignGroup covers the multi-group case
+// observed on the HCI104 lab: /serverGroups returns both the local
+// group (OurGroup=true) and a federated peer; /servers contains
+// nodes from both, with the foreign-group nodes carrying compound
+// IDs and empty descriptive fields. LocalServers must drop them.
+func TestLocalServers_FiltersForeignGroup(t *testing.T) {
+	srv := httptest.NewServer(withSessions(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/serverGroups"):
+			_, _ = w.Write([]byte(`[
+				{"Id":"local","Caption":"HCI104","OurGroup":true},
+				{"Id":"remote","Caption":"HCI130","OurGroup":false}
+			]`))
+		case strings.HasSuffix(r.URL.Path, "/servers"):
+			_, _ = w.Write([]byte(`[
+				{"Id":"sds1","Caption":"SDS121","GroupId":"local"},
+				{"Id":"sds2","Caption":"SDS122","GroupId":"local"},
+				{"Id":"remote:hv1","Caption":"SSY-HYPERV191","GroupId":"remote"},
+				{"Id":"remote:hv2","Caption":"SSY-HYPERV192","GroupId":"remote"}
+			]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, 0)
+	got, err := c.LocalServers(context.Background())
+	if err != nil {
+		t.Fatalf("LocalServers: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2 (foreign-group servers must be dropped)", len(got))
+	}
+	for _, s := range got {
+		if s.GroupID != "local" {
+			t.Fatalf("server %q has GroupID %q, want local", s.Caption, s.GroupID)
+		}
+	}
+}
+
+// TestLocalServers_NoOurGroupKeepsAll is the defensive fallback: if
+// no group is flagged OurGroup=true, return the unfiltered list
+// rather than silently emptying the inventory.
+func TestLocalServers_NoOurGroupKeepsAll(t *testing.T) {
+	srv := httptest.NewServer(withSessions(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/serverGroups"):
+			_, _ = w.Write([]byte(`[{"Id":"g1","OurGroup":false}]`))
+		case strings.HasSuffix(r.URL.Path, "/servers"):
+			_, _ = w.Write([]byte(`[{"Id":"s1","GroupId":"g1"},{"Id":"s2","GroupId":"g2"}]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv, 0)
+	got, err := c.LocalServers(context.Background())
+	if err != nil {
+		t.Fatalf("LocalServers: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2 (no OurGroup → no filter)", len(got))
+	}
+}
+
 // itoa avoids pulling strconv solely for the reauth test.
 func itoa(n int) string {
 	if n == 0 {

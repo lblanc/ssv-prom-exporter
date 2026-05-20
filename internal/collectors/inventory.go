@@ -196,6 +196,29 @@ func (c *Inventory) CollectMetrics(ctx context.Context, ch chan<- prometheus.Met
 		}
 	}
 
+	// Drop servers that belong to a remote (federated) SSV group: their
+	// /performance endpoint returns no usable data and descriptive
+	// fields are empty stubs, so they only add noise to the dashboards
+	// and the failover IP pool.
+	if gerr == nil && serr == nil {
+		var localGroupID string
+		for _, g := range groups {
+			if g.OurGroup {
+				localGroupID = g.ID
+				break
+			}
+		}
+		if localGroupID != "" {
+			kept := servers[:0]
+			for _, s := range servers {
+				if s.GroupID == localGroupID {
+					kept = append(kept, s)
+				}
+			}
+			servers = kept
+		}
+	}
+
 	// Refresh the client's failover backup list with all IPs reported by
 	// the servers in the group. The client de-dups against the primary
 	// host and filters out unusable IPs (loopback, link-local, IPv6).
