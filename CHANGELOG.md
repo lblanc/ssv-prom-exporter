@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.8.1] - 2026-05-20
+
+### Fixed
+- **Federated server groups no longer pollute the inventory.** SSV
+  exposes the full peer topology via `/serverGroups` and `/servers` —
+  on a multi-group install, the local exporter would emit
+  `ssv_server_*` series for nodes belonging to a remote group
+  (compound IDs of the form `<remote-group-uuid>:<server-uuid>`),
+  yet `/performance/{id}` returns no data for them so the
+  per-server panels stayed empty in Grafana. The client now exposes
+  `LocalServers(ctx)` which keeps only the servers whose `GroupID`
+  matches the `OurGroup=true` group; both the inventory and
+  performance collectors switched to it, and the failover IP pool
+  is restricted to local nodes accordingly. Surfaced on the HCI104
+  lab (showing HCI130's Hyper-V hosts) on 2026-05-20. Two regression
+  tests added: `TestLocalServers_FiltersForeignGroup`,
+  `TestLocalServers_NoOurGroupKeepsAll`. Group-level metrics
+  (`ssv_server_group_*`) still expose every visible group so peer
+  reachability remains observable.
+
 ## [v0.8.0] - 2026-05-20
 
 ### Fixed

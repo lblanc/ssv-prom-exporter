@@ -50,6 +50,11 @@ to run on the SSV host itself.
   every `ssv_physical_disk_*`.
 - **REST endpoint failover** with auto-discovery from `/servers`,
   sticky preferred endpoint (5 min TTL), CIDR-filtered backup list.
+- **Multi-group aware**: server-level metrics are scoped to the local
+  SSV group (`OurGroup=true`). Federated peer groups visible through
+  `/serverGroups` are kept on group-level metrics but excluded from
+  per-server inventory and performance fan-out, so dashboards stay
+  free of empty rows for remote nodes.
 - **Retry/backoff** on transient SSV failures (exponential, capped,
   with jitter, ctx-aware).
 - **YAML config** with strict unknown-field rejection and a clean
@@ -453,6 +458,33 @@ is unreachable. Mechanics:
 
 Pass `-bases ip1,ip2,...` to seed the backup list before the first
 scrape (useful on cold start before any inventory has been pulled).
+
+## Multi-group SSV deployments
+
+SSV management servers federate their state: a single
+`/serverGroups` call returns the local group plus every peer the
+group has been linked to, and `/servers` mixes local nodes with
+remote ones (the latter carry compound IDs of the form
+`<remote-group-uuid>:<server-uuid>` and have most descriptive fields
+empty). `/performance/{id}` is local-only.
+
+The exporter therefore only scrapes per-server inventory and
+performance for the local group, identified by `OurGroup=true` in
+`/serverGroups`. Group-level metrics (`ssv_server_group_*`) keep
+every peer so you can still alert on a federated group going
+unreachable, but `ssv_server_*`, `ssv_server_class_*` and the
+failover IP pool are scoped to the local nodes.
+
+Practical consequence: **run one exporter per SSV group**. The
+`EXPORTER_TARGETS` Prometheus generator already supports this
+shape:
+
+```env
+EXPORTER_TARGETS=HCI104=10.12.104.121:9876,HCI130=10.12.130.121:9876
+```
+
+Each entry becomes a Prometheus `job_name` with a `group=<name>`
+label, and the Grafana dashboards filter on `$group` end-to-end.
 
 ## Windows service
 
