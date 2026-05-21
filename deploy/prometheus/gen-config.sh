@@ -14,7 +14,22 @@ set -e
 TARGETS="${EXPORTER_TARGETS:-${EXPORTER_TARGET:+lab=$EXPORTER_TARGET}}"
 TARGETS="${TARGETS:-lab=host.docker.internal:9876}"
 
-cat > /tmp/prometheus.yml <<HEAD
+# Optional out-of-order storage window. Required when remote-write is
+# enabled (PROM_REMOTE_WRITE=1) — without it, Prometheus silently drops
+# any imported sample older than the current head block (~2h), and
+# prom-clip imports look successful but write nothing.
+if [ -n "${PROM_REMOTE_WRITE:-}" ]; then
+  cat > /tmp/prometheus.yml <<STORAGE
+storage:
+  tsdb:
+    out_of_order_time_window: ${PROM_OOO_WINDOW:-7d}
+
+STORAGE
+else
+  : > /tmp/prometheus.yml
+fi
+
+cat >> /tmp/prometheus.yml <<'HEAD'
 global:
   scrape_interval: 5s
   evaluation_interval: 5s
@@ -47,7 +62,7 @@ ENTRY
 done
 IFS="$old_ifs"
 
-cat >> /tmp/prometheus.yml <<TAIL
+cat >> /tmp/prometheus.yml <<'TAIL'
 
   - job_name: prometheus
     static_configs:

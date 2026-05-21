@@ -36,16 +36,30 @@ services:
       - -c
       - |
         /usr/local/bin/gen-config.sh
-        exec /bin/prometheus \
+        set -- \
             --config.file=/tmp/prometheus.yml \
             --storage.tsdb.path=/prometheus \
             --storage.tsdb.retention.time=15d \
             --web.enable-lifecycle
+        # Optional: accept inbound remote-write payloads from prom-clip or
+        # any other backfill tool. Off by default (Prometheus is pull-only
+        # in normal use); set PROM_REMOTE_WRITE=1 in .env to enable.
+        # gen-config.sh emits the matching out-of-order storage window
+        # below so old samples are not silently dropped.
+        if [ -n "$$PROM_REMOTE_WRITE" ]; then
+          set -- "$$@" --web.enable-remote-write-receiver
+        fi
+        exec /bin/prometheus "$$@"
     environment:
       # In full-stack mode (--profile full) the `exporter` service below
       # registers a default target. EXPORTER_TARGETS overrides this.
       EXPORTER_TARGETS: ${EXPORTER_TARGETS:-${SSV_GROUP:-full}=exporter:9876}
       EXPORTER_TARGET: ${EXPORTER_TARGET:-}
+      # Inbound remote-write (off by default). Set PROM_REMOTE_WRITE=1 in
+      # .env to accept backfill from prom-clip. PROM_OOO_WINDOW (default
+      # 7d) governs how far back imported samples may reach.
+      PROM_REMOTE_WRITE: ${PROM_REMOTE_WRITE:-}
+      PROM_OOO_WINDOW: ${PROM_OOO_WINDOW:-7d}
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
