@@ -343,3 +343,23 @@ boards had panels we couldn't fill from current metrics). Expose:
   intentionally NOT generated from the markdown (it has its own
   sidebar/scrollspy structure that must be edited by hand in
   parallel).
+- 2026-05-21 — `prom-clip` shipped as a Docker image + compose
+  service. New `Dockerfile.prom-clip` (multi-stage, alpine:3.20,
+  nonroot uid 65532, tini, wget HEALTHCHECK on `/`, ~30 MB final)
+  parallel to the exporter Dockerfile. `deploy/docker-compose.yml`
+  gains a `clip` profile that runs prom-clip alongside Prometheus +
+  Grafana on the stack network, bound on host loopback
+  `127.0.0.1:8088` (no Windows Firewall prompt, no external
+  exposure), with state persisted on a named volume
+  `prom-clip-state`. Combinable with `--profile full`. Container
+  defaults: `-listen 0.0.0.0:8088 -open=false -state-dir
+  /var/lib/prom-clip`. `extra_hosts: host.docker.internal:host-gateway`
+  lets the UI also reach a Prom running on the docker host.
+  Release workflow extended to push a parallel multi-arch image at
+  `ghcr.io/<owner>/prom-clip` (`vX.Y.Z`, `X.Y`, `latest` tags). CI
+  gates a no-push docker build for both images. New Makefile
+  targets `docker-build-prom-clip` / `docker-push-prom-clip`. Docs
+  (README, `out/user-guide.md` §17.4, `out/web-help/index.html`)
+  cover the `--profile clip` workflow, the GHCR image, and
+  `host.docker.internal` for cross-network access. Smoke-tested
+  end-to-end against the deploy stack.
