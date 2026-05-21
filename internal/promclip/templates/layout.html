@@ -114,6 +114,70 @@ pre {
 .status-success { color: var(--ok); font-weight: 600; }
 .status-failed { color: var(--err); font-weight: 600; }
 .test-result { margin-top: 8px; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+.field-with-browse { display: flex; gap: 6px; align-items: stretch; }
+.field-with-browse > input { flex: 1; }
+.field-with-browse > button { white-space: nowrap; }
+
+/* Folder/file picker modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 1000;
+}
+.modal-backdrop.open { display: flex; }
+.modal {
+  background: #fff;
+  width: min(640px, 95vw);
+  max-height: 80vh;
+  border-radius: 10px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.35);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal header h3 { margin: 0; font-size: 15px; }
+.modal .close-btn {
+  background: transparent; color: var(--muted);
+  border: 0; font-size: 20px; cursor: pointer; padding: 0 6px;
+}
+.modal .crumbs {
+  padding: 8px 18px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  background: var(--code-bg);
+  border-bottom: 1px solid var(--border);
+  word-break: break-all;
+}
+.modal .body { flex: 1; overflow: auto; padding: 0 0 8px 0; }
+.modal .body ul { list-style: none; padding: 0; margin: 0; }
+.modal .body li {
+  padding: 7px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: center;
+}
+.modal .body li:hover { background: #f8fafc; }
+.modal .body li.selected { background: #dbeafe; }
+.modal .body li.disabled { color: var(--muted); cursor: default; }
+.modal .body li .icon { width: 16px; text-align: center; }
+.modal .body li .meta { margin-left: auto; color: var(--muted); font-size: 11px; }
+.modal footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.modal .empty, .modal .err {
+  padding: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.modal .err { color: var(--err); }
 </style>
 </head>
 <body>
@@ -123,6 +187,7 @@ pre {
     <a href="/"{{if eq .Page "connection"}} class="active"{{end}}>Connection</a>
     <a href="/export"{{if eq .Page "export"}} class="active"{{end}}>Export</a>
     <a href="/import"{{if eq .Page "import"}} class="active"{{end}}>Import</a>
+    <a href="/settings/s3"{{if eq .Page "s3"}} class="active"{{end}}>S3 target</a>
     <a href="/status"{{if eq .Page "status"}} class="active"{{end}}>Status</a>
   </nav>
 </header>
@@ -131,6 +196,154 @@ pre {
 
 {{define "footer"}}
 </main>
+
+<div id="pickerBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
+  <div class="modal">
+    <header>
+      <h3 id="pickerTitle">Select a folder</h3>
+      <button type="button" class="close-btn" onclick="picker.close()" aria-label="Close">&times;</button>
+    </header>
+    <div id="pickerCrumbs" class="crumbs">/</div>
+    <div id="pickerBody" class="body"><div class="empty">Loading…</div></div>
+    <footer>
+      <button type="button" class="secondary" onclick="picker.close()">Cancel</button>
+      <button type="button" id="pickerConfirm" onclick="picker.confirm()">Use this folder</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+// Reusable server-side filesystem picker.
+// Usage:
+//   picker.open({mode: 'folder', target: 'input-id', start: '...'});
+//   picker.open({mode: 'file',   target: 'input-id', start: '...'});
+const picker = (() => {
+  const backdrop = document.getElementById('pickerBackdrop');
+  const titleEl  = document.getElementById('pickerTitle');
+  const crumbsEl = document.getElementById('pickerCrumbs');
+  const bodyEl   = document.getElementById('pickerBody');
+  const confirmBtn = document.getElementById('pickerConfirm');
+  let mode = 'folder';      // 'folder' | 'file'
+  let targetInput = null;   // <input> we fill on confirm
+  let current = '';         // current dir absolute path ('' = synthetic root)
+  let selectedPath = '';    // path the user has picked
+  let sep = '/';
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(1) + ' KiB';
+    if (n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MiB';
+    return (n/1024/1024/1024).toFixed(2) + ' GiB';
+  }
+
+  function setSelected(path) {
+    selectedPath = path;
+    bodyEl.querySelectorAll('li').forEach(li => {
+      li.classList.toggle('selected', li.dataset.path === path);
+    });
+    confirmBtn.disabled = !path;
+  }
+
+  async function load(path) {
+    bodyEl.innerHTML = '<div class="empty">Loading…</div>';
+    const url = '/browse' + (path ? ('?path=' + encodeURIComponent(path)) : '');
+    let res;
+    try {
+      res = await fetch(url);
+    } catch (e) {
+      bodyEl.innerHTML = '<div class="err">network error: '+e+'</div>';
+      return;
+    }
+    if (!res.ok) {
+      const t = await res.text();
+      bodyEl.innerHTML = '<div class="err">'+t+'</div>';
+      return;
+    }
+    const data = await res.json();
+    current = data.path || '';
+    sep = data.sep || '/';
+    crumbsEl.textContent = current || '(drives)';
+
+    // In folder mode, the current directory itself is a valid pick.
+    selectedPath = (mode === 'folder' && current) ? current : '';
+    confirmBtn.disabled = !selectedPath;
+
+    const ul = document.createElement('ul');
+    if (data.parent !== '' || (current && sep === '\\')) {
+      // Allow climbing up — to parent dir, or to drive-root pseudo-listing on Windows.
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="icon">⬆</span><span>..</span>';
+      li.onclick = () => load(data.parent);
+      ul.appendChild(li);
+    }
+    if (Array.isArray(data.drives)) {
+      for (const drive of data.drives) {
+        const li = document.createElement('li');
+        li.dataset.path = drive;
+        li.innerHTML = '<span class="icon">💽</span><span>'+drive+'</span>';
+        li.ondblclick = () => load(drive);
+        li.onclick    = () => load(drive);
+        ul.appendChild(li);
+      }
+    }
+    for (const e of (data.entries || [])) {
+      const full = (current.endsWith(sep) ? current : current + sep) + e.name;
+      const li = document.createElement('li');
+      li.dataset.path = full;
+      const icon = e.is_dir ? '📁' : '📄';
+      const meta = e.is_dir ? '' : ('<span class="meta">'+fmtBytes(e.size||0)+'</span>');
+      li.innerHTML = '<span class="icon">'+icon+'</span><span>'+e.name+'</span>'+meta;
+      if (e.is_dir) {
+        li.ondblclick = () => load(full);
+        li.onclick    = () => {
+          if (mode === 'folder') setSelected(full);
+          else load(full);
+        };
+      } else {
+        if (mode === 'file') {
+          li.onclick    = () => setSelected(full);
+          li.ondblclick = () => { setSelected(full); confirm(); };
+        } else {
+          li.classList.add('disabled');
+        }
+      }
+      ul.appendChild(li);
+    }
+    bodyEl.innerHTML = '';
+    bodyEl.appendChild(ul);
+  }
+
+  function open(opts) {
+    mode = opts.mode === 'file' ? 'file' : 'folder';
+    targetInput = document.getElementById(opts.target);
+    titleEl.textContent = mode === 'file' ? 'Select a file' : 'Select a folder';
+    confirmBtn.textContent = mode === 'file' ? 'Use this file' : 'Use this folder';
+    backdrop.classList.add('open');
+    const start = opts.start || (targetInput && targetInput.value) || '';
+    load(start);
+  }
+  function close() {
+    backdrop.classList.remove('open');
+  }
+  function confirm() {
+    if (!selectedPath) return;
+    if (targetInput) {
+      targetInput.value = selectedPath;
+      targetInput.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    close();
+  }
+
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && backdrop.classList.contains('open')) close();
+  });
+
+  return {open, close, confirm};
+})();
+</script>
 </body>
 </html>
 {{end}}

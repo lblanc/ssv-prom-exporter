@@ -26,6 +26,12 @@ type ImportRequest struct {
 	// wire. Defaults to 500 if unset; large batches reduce HTTP overhead
 	// but Prometheus has a 32 MiB hard cap on snappy-decompressed bodies.
 	BatchSeries int
+	// OverrideGroup, when non-empty, replaces (or adds) the "group" label
+	// on every imported series. Useful when re-injecting a customer's
+	// export into a local lab to retag everything under a new group.
+	// Note: collapsing distinct group values into one merges series that
+	// were previously distinguished only by group.
+	OverrideGroup string
 }
 
 // ImportResult is the post-flight summary.
@@ -125,6 +131,9 @@ func Import(ctx context.Context, log *slog.Logger, req ImportRequest) (ImportRes
 		if perr != nil {
 			log.Warn("import: skip line", "err", perr, "line", line)
 			continue
+		}
+		if req.OverrideGroup != "" {
+			labels = upsertLabel(labels, "group", req.OverrideGroup)
 		}
 
 		pbLabels := make([]PBLabel, 0, len(labels)+1)
@@ -270,6 +279,19 @@ func parseLabelBlock(s string) ([]PBLabel, error) {
 		labels = append(labels, PBLabel{Name: name, Value: v.String()})
 	}
 	return labels, nil
+}
+
+// upsertLabel replaces the value of an existing label or appends a new
+// one. The slice is mutated in place when the label already exists; a
+// new slice with one extra entry is returned otherwise.
+func upsertLabel(labels []PBLabel, name, value string) []PBLabel {
+	for i := range labels {
+		if labels[i].Name == name {
+			labels[i].Value = value
+			return labels
+		}
+	}
+	return append(labels, PBLabel{Name: name, Value: value})
 }
 
 func canonicalKey(labels []PBLabel) string {

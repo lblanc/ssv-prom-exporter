@@ -2,19 +2,36 @@
 
 <div class="card">
   <h2>Import an OpenMetrics file via remote write</h2>
-  {{if not .Target.URL}}
+  {{if not .Connection.URL}}
     <div class="flash" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca">
-      No target Prometheus configured. <a href="/">Set one first.</a>
+      No Prometheus configured. <a href="/">Set one first.</a>
     </div>
   {{else}}
-    <p class="hint">Writing to <strong>{{.Target.URL}}</strong> at <span class="kbd">/api/v1/write</span>.
-      The target Prometheus must have been started with <span class="kbd">--web.enable-remote-write-receiver</span>.</p>
-    <form method="post" action="/import">
-      <label>Input file</label>
-      <input type="text" name="input" placeholder="prom-clip-20260520-140000.txt.gz" required>
+    <p class="hint">Writing to <strong>{{.Connection.URL}}</strong> at <span class="kbd">/api/v1/write</span>.
+      <a href="/">Change.</a>
+      The Prometheus must have been started with <span class="kbd">--web.enable-remote-write-receiver</span>.</p>
+    <form method="post" action="/import" enctype="multipart/form-data">
+      <label>Upload a file from this browser</label>
+      <input type="file" name="file" accept=".gz,.txt,application/gzip,text/plain">
+      <div class="hint">The file is streamed to
+        <span class="kbd">{{.OutputDir}}/uploads/</span> on the server before the
+        import starts.</div>
+
+      <label style="margin-top:18px">…or use a file already on the server</label>
+      <div class="field-with-browse">
+        <input type="text" id="import-input" name="input" placeholder="prom-clip-20260520-140000.txt.gz">
+        <button type="button" class="secondary" onclick="picker.open({mode:'file', target:'import-input', start: document.getElementById('import-input').value || '{{.OutputDir}}'})">Browse…</button>
+      </div>
       <div class="hint">Relative names are looked up in <span class="kbd">{{.OutputDir}}</span>.
         Files produced by Export carry their own timestamps; the target will reject samples older than its
         out-of-order ingestion window unless <span class="kbd">tsdb.out_of_order_time_window</span> is set high enough.</div>
+
+      <label>Override <span class="kbd">group</span> label (optional)</label>
+      <input type="text" name="group_override" placeholder="e.g. DEMO-LAB">
+      <div class="hint">Rewrites every imported series so its <span class="kbd">group="…"</span> label
+        matches the value above. Leave empty to preserve the original groups.
+        Note: collapsing several distinct groups into one merges series that were previously
+        distinguished only by group.</div>
 
       <label>Batch size (series per WriteRequest)</label>
       <input type="number" name="batch" value="500" min="1" max="10000">

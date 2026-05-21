@@ -1,65 +1,41 @@
 {{template "header" .}}
-{{if .Saved}}<div class="flash ok">{{.Saved}} connection saved.</div>{{end}}
+{{if .Saved}}<div class="flash ok">Connection saved.</div>{{end}}
 
 <div class="card">
-  <h2>Source Prometheus (to read from)</h2>
+  <h2>Prometheus connection</h2>
+  <p class="hint">A single endpoint is used by both modes: as the source in
+    <a href="/export">Export</a> and as the remote-write target in
+    <a href="/import">Import</a>.</p>
   <form method="post" action="/">
-    <input type="hidden" name="side" value="source">
     <label>URL</label>
-    <input type="text" name="source_url" value="{{.Source.URL}}" placeholder="http://localhost:9090" required>
+    <input type="text" name="url" value="{{.Connection.URL}}" placeholder="http://localhost:9090" required>
     <div class="row">
       <div>
         <label>Username (optional)</label>
-        <input type="text" name="source_username" value="{{.Source.Username}}">
+        <input type="text" name="username" value="{{.Connection.Username}}">
       </div>
       <div>
         <label>Password (optional)</label>
-        <input type="password" name="source_password" value="{{.Source.Password}}">
+        <input type="password" name="password" value="{{.Connection.Password}}">
       </div>
     </div>
-    <label><input type="checkbox" name="source_insecure" {{if .Source.Insecure}}checked{{end}}> Skip TLS verification</label>
+    <label><input type="checkbox" name="insecure" {{if .Connection.Insecure}}checked{{end}}> Skip TLS verification</label>
     <div class="button-row">
       <button type="submit">Save</button>
-      <button type="button" class="secondary" onclick="testConn('source', this)">Test connection</button>
+      <button type="button" class="secondary" onclick="testConn(this)">Test connection</button>
     </div>
-    <div class="test-result" data-side="source"></div>
-  </form>
-</div>
-
-<div class="card">
-  <h2>Target Prometheus (to write to)</h2>
-  <p class="hint">The target Prometheus must run with <span class="kbd">--web.enable-remote-write-receiver</span> to accept replays.</p>
-  <form method="post" action="/">
-    <input type="hidden" name="side" value="target">
-    <label>URL</label>
-    <input type="text" name="target_url" value="{{.Target.URL}}" placeholder="http://localhost:9091" required>
-    <div class="row">
-      <div>
-        <label>Username (optional)</label>
-        <input type="text" name="target_username" value="{{.Target.Username}}">
-      </div>
-      <div>
-        <label>Password (optional)</label>
-        <input type="password" name="target_password" value="{{.Target.Password}}">
-      </div>
-    </div>
-    <label><input type="checkbox" name="target_insecure" {{if .Target.Insecure}}checked{{end}}> Skip TLS verification</label>
-    <div class="button-row">
-      <button type="submit">Save</button>
-      <button type="button" class="secondary" onclick="testConn('target', this)">Test connection</button>
-    </div>
-    <div class="test-result" data-side="target"></div>
+    <div class="test-result"></div>
   </form>
 </div>
 
 <script>
-async function testConn(side, btn) {
+async function testConn(btn) {
   const form = btn.closest('form');
   const params = new URLSearchParams(new FormData(form)).toString();
-  const out = form.querySelector('.test-result[data-side="'+side+'"]');
+  const out = form.querySelector('.test-result');
   out.textContent = 'testing…';
   try {
-    const r = await fetch('/test-' + side, {
+    const r = await fetch('/test', {
       method: 'POST',
       body: params,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

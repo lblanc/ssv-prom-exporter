@@ -24,7 +24,12 @@
             <td>{{.Series}}</td>
             <td>{{.Samples}}</td>
             <td>{{fmtDuration .StartedAt .FinishedAt}}</td>
-            <td><a href="/status/{{.ID}}">details</a></td>
+            <td>
+              <a href="/status/{{.ID}}">details</a>
+              {{if and (eq .Kind "export") (eq .Status "success")}}
+                · <a href="/download/{{.ID}}">download</a>
+              {{end}}
+            </td>
           </tr>
         {{end}}
       </tbody>

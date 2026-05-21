@@ -1,97 +1,163 @@
 package promclip
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"os/exec"
+	"net/url"
+	"os"
+	"path"
 	"strings"
+	"time"
+
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-// S3Upload uploads path to S3 via the `proj` CLI (which is responsible
-// for resolving the current project and credentials). If public is
-// true, the file is pushed to the public-share bucket with a direct
-// URL; otherwise it lands in the project's private prefix and the
-// returned URL is a presigned 1h URL.
+// S3Upload sends localPath into the bucket described by target and
+// returns a share URL.
 //
-// Returns the share URL printed by proj. An error is returned if proj
-// is not on $PATH, fails, or prints no URL.
-func S3Upload(ctx context.Context, log *slog.Logger, path string, public bool) (string, error) {
-	if _, err := exec.LookPath("proj"); err != nil {
-		return "", fmt.Errorf("proj not found in PATH: %w", err)
+//   - When target.Public is true, the returned URL is a direct
+//     <scheme>://<endpoint>/<bucket>/<key> link (or
+//     <public_base_url>/<key> when an override is set).
+//   - Otherwise a 24h presigned GET URL is returned.
+//
+// Returns an error if target is not configured (empty Endpoint or
+// Bucket) or if the underlying minio-go call fails.
+func S3Upload(ctx context.Context, log *slog.Logger, localPath string, target S3Target) (string, error) {
+	if target.Endpoint == "" || target.Bucket == "" {
+		return "", errors.New("S3 target is not configured (Settings → S3 target)")
 	}
 
-	var (
-		stdout, stderr bytes.Buffer
-		cmd            *exec.Cmd
-	)
-
-	if public {
-		cmd = exec.CommandContext(ctx, "proj", "put", "--public", path)
-	} else {
-		// Two-step: upload, then share with default TTL.
-		cmd = exec.CommandContext(ctx, "proj", "put", path)
+	endpoint, secure := normalizeEndpoint(target.Endpoint, target.UseSSL)
+	opts := &minio.Options{
+		Secure: secure,
+		Region: target.Region,
 	}
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("proj put: %w (stderr: %s)", err, strings.TrimSpace(stderr.String()))
+	if target.AccessKey != "" || target.SecretKey != "" {
+		opts.Creds = credentials.NewStaticV4(target.AccessKey, target.SecretKey, "")
 	}
-
-	url := extractURL(stdout.String())
-	if public {
-		if url == "" {
-			return "", fmt.Errorf("proj put --public printed no URL (stdout: %s)", strings.TrimSpace(stdout.String()))
-		}
-		return url, nil
+	if target.PathStyle {
+		// MinIO defaults to virtual-hosted style for AWS hostnames and
+		// path-style otherwise; this hint forces path-style when the
+		// user knows their server needs it (most non-AWS S3 do).
+		opts.BucketLookup = minio.BucketLookupPath
+	}
+	cli, err := minio.New(endpoint, opts)
+	if err != nil {
+		return "", fmt.Errorf("s3 client: %w", err)
 	}
 
-	// Private mode: need a second call to get a presigned URL.
-	// `proj put` prints the uploaded key on stdout (e.g. "uploaded
-	// ssv-prom-exporter/foo.txt.gz"); fall back to the basename of path.
-	key := extractKey(stdout.String(), path)
-	if key == "" {
-		return "", fmt.Errorf("proj put printed no key (stdout: %s)", strings.TrimSpace(stdout.String()))
+	key := buildObjectKey(target.Prefix, localPath)
+	st, err := os.Stat(localPath)
+	if err != nil {
+		return "", fmt.Errorf("stat %s: %w", localPath, err)
 	}
-	stdout.Reset()
-	stderr.Reset()
-	share := exec.CommandContext(ctx, "proj", "share", key, "--ttl", "24h")
-	share.Stdout = &stdout
-	share.Stderr = &stderr
-	if err := share.Run(); err != nil {
-		return "", fmt.Errorf("proj share %s: %w (stderr: %s)", key, err, strings.TrimSpace(stderr.String()))
+	log.Info("s3 upload start", "endpoint", endpoint, "bucket", target.Bucket, "key", key, "size", st.Size())
+	if _, err := cli.FPutObject(ctx, target.Bucket, key, localPath,
+		minio.PutObjectOptions{ContentType: detectContentType(localPath)}); err != nil {
+		return "", fmt.Errorf("s3 put: %w", err)
 	}
-	url = extractURL(stdout.String())
-	if url == "" {
-		return "", fmt.Errorf("proj share printed no URL (stdout: %s)", strings.TrimSpace(stdout.String()))
+	log.Info("s3 upload done", "bucket", target.Bucket, "key", key)
+
+	if target.Public {
+		return buildPublicURL(target, endpoint, secure, key), nil
 	}
-	return url, nil
+	presigned, err := cli.PresignedGetObject(ctx, target.Bucket, key, 24*time.Hour, nil)
+	if err != nil {
+		return "", fmt.Errorf("s3 presign: %w", err)
+	}
+	return presigned.String(), nil
 }
 
-// extractURL scans output for the first http(s) URL.
-func extractURL(s string) string {
-	for _, tok := range strings.Fields(s) {
-		if strings.HasPrefix(tok, "https://") || strings.HasPrefix(tok, "http://") {
-			return tok
-		}
+// S3Test runs a cheap, non-mutating call against target to validate
+// credentials and connectivity. Returns a human-readable status string
+// on success and an error on failure.
+func S3Test(ctx context.Context, target S3Target) (string, error) {
+	if target.Endpoint == "" || target.Bucket == "" {
+		return "", errors.New("endpoint and bucket are required")
 	}
-	return ""
+	endpoint, secure := normalizeEndpoint(target.Endpoint, target.UseSSL)
+	opts := &minio.Options{Secure: secure, Region: target.Region}
+	if target.AccessKey != "" || target.SecretKey != "" {
+		opts.Creds = credentials.NewStaticV4(target.AccessKey, target.SecretKey, "")
+	}
+	if target.PathStyle {
+		opts.BucketLookup = minio.BucketLookupPath
+	}
+	cli, err := minio.New(endpoint, opts)
+	if err != nil {
+		return "", err
+	}
+	ok, err := cli.BucketExists(ctx, target.Bucket)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", fmt.Errorf("bucket %q does not exist (or is not visible with the given credentials)", target.Bucket)
+	}
+	return fmt.Sprintf("bucket %q reachable on %s", target.Bucket, endpoint), nil
 }
 
-// extractKey scans output for a token ending in the same basename as
-// path; falls back to the basename of path itself.
-func extractKey(s, path string) string {
-	base := path
-	if i := strings.LastIndexAny(path, "/\\"); i >= 0 {
-		base = path[i+1:]
+// normalizeEndpoint strips any leading scheme from raw and infers the
+// secure flag when one is present, otherwise honors the explicit useSSL
+// preference. minio.New expects a bare "host[:port]".
+func normalizeEndpoint(raw string, useSSL bool) (string, bool) {
+	r := strings.TrimSpace(raw)
+	switch {
+	case strings.HasPrefix(r, "https://"):
+		return strings.TrimPrefix(r, "https://"), true
+	case strings.HasPrefix(r, "http://"):
+		return strings.TrimPrefix(r, "http://"), false
 	}
-	for _, line := range strings.Split(s, "\n") {
-		for _, tok := range strings.Fields(line) {
-			if strings.HasSuffix(tok, base) && !strings.HasPrefix(tok, "http") {
-				return tok
-			}
-		}
+	return r, useSSL
+}
+
+// buildObjectKey joins prefix and the local file's basename so the
+// generated key always lives under the configured prefix and never
+// contains directory separators leaking from the local path.
+func buildObjectKey(prefix, localPath string) string {
+	base := localPath
+	if i := strings.LastIndexAny(base, `/\`); i >= 0 {
+		base = base[i+1:]
 	}
-	return base
+	if prefix == "" {
+		return base
+	}
+	// path.Join cleans up duplicate slashes; key components always use "/".
+	return path.Join(prefix, base)
+}
+
+// buildPublicURL constructs the share URL for a public bucket. When the
+// user configured PublicBaseURL, it wins; otherwise we synthesize a
+// path-style URL against the endpoint.
+func buildPublicURL(t S3Target, endpoint string, secure bool, key string) string {
+	if t.PublicBaseURL != "" {
+		base := strings.TrimRight(t.PublicBaseURL, "/")
+		return base + "/" + key
+	}
+	scheme := "http"
+	if secure {
+		scheme = "https"
+	}
+	// url.PathEscape mangles "/"; build the path by hand from segments.
+	parts := strings.Split(key, "/")
+	for i, p := range parts {
+		parts[i] = url.PathEscape(p)
+	}
+	return scheme + "://" + endpoint + "/" + t.Bucket + "/" + strings.Join(parts, "/")
+}
+
+// detectContentType picks a sensible Content-Type for the object.
+// Exports are gzipped OpenMetrics, so .gz wins by extension.
+func detectContentType(p string) string {
+	low := strings.ToLower(p)
+	switch {
+	case strings.HasSuffix(low, ".gz"):
+		return "application/gzip"
+	case strings.HasSuffix(low, ".txt"):
+		return "text/plain; charset=utf-8"
+	}
+	return "application/octet-stream"
 }

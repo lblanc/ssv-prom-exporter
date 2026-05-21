@@ -2,12 +2,12 @@
 
 <div class="card">
   <h2>Export a time window to OpenMetrics</h2>
-  {{if not .Source.URL}}
+  {{if not .Connection.URL}}
     <div class="flash" style="background:#fef2f2;color:#991b1b;border:1px solid #fecaca">
-      No source Prometheus configured. <a href="/">Set one first.</a>
+      No Prometheus configured. <a href="/">Set one first.</a>
     </div>
   {{else}}
-    <p class="hint">Reading from <strong>{{.Source.URL}}</strong>.</p>
+    <p class="hint">Reading from <strong>{{.Connection.URL}}</strong>. <a href="/">Change.</a></p>
     <form method="post" action="/export">
       <div class="row">
         <div>
@@ -39,12 +39,27 @@
         </div>
       </div>
 
+      {{if not .Ephemeral}}
+      <label>Output folder</label>
+      <div class="field-with-browse">
+        <input type="text" id="export-folder" name="output_folder" placeholder="{{.OutputDir}}">
+        <button type="button" class="secondary" onclick="picker.open({mode:'folder', target:'export-folder', start: document.getElementById('export-folder').value || '{{.OutputDir}}'})">Browse…</button>
+      </div>
+      <div class="hint">Leave empty to use the default <span class="kbd">{{.OutputDir}}</span>.</div>
+      {{end}}
+
       <label>Output filename</label>
       <input type="text" name="output" placeholder="prom-clip-{timestamp}.txt.gz">
-      <div class="hint">Relative names land in <span class="kbd">{{.OutputDir}}</span>. Absolute paths are used as-is.</div>
+      <div class="hint">
+        {{if .Ephemeral}}
+          Ephemeral mode: the file is streamed to your browser when the export finishes and removed from the server right after. Use the <a href="/status">Status</a> page to start the download.
+        {{else}}
+          If you put a path separator in the filename or supply an absolute path, it overrides the folder above.
+          The file can also be downloaded to your browser from the <a href="/status">Status</a> page once the export finishes.
+        {{end}}
+      </div>
 
-      <label><input type="checkbox" name="s3" value="1"> Also upload to S3 via <span class="kbd">proj put</span></label>
-      <label><input type="checkbox" name="s3_public" value="1"> &nbsp;&nbsp;Use the public-share bucket (direct URL, no expiry)</label>
+      <label><input type="checkbox" name="s3" value="1"> Also upload to the configured <a href="/settings/s3">S3 target</a> when the export finishes</label>
 
       <div class="button-row">
         <button type="submit">Start export</button>

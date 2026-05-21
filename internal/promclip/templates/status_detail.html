@@ -34,6 +34,9 @@
 
   <div class="button-row">
     <a class="btn secondary" href="/status">Back</a>
+    {{if and (eq .Run.Kind "export") (eq .Run.Status "success")}}
+      <a class="btn" href="/download/{{.Run.ID}}">Download output</a>
+    {{end}}
     {{if eq .Run.Status "running"}}
       <form method="post" action="/cancel/{{.Run.ID}}" style="display:inline">
         <button type="submit" class="danger">Cancel</button>

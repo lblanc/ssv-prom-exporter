@@ -1,0 +1,79 @@
+{{template "header" .}}
+{{if .Saved}}<div class="flash ok">S3 target saved.</div>{{end}}
+
+<div class="card">
+  <h2>S3 target (optional)</h2>
+  <p class="hint">Configure an S3-compatible bucket to receive the
+    <strong>.txt.gz</strong> files produced by Export. The "Push to S3"
+    checkbox in Export only does something when this form is filled in.
+    Credentials can be left empty for a publicly writable bucket
+    (uncommon) or when relying on environment-supplied credentials.</p>
+  <form method="post" action="/settings/s3">
+    <div class="row">
+      <div>
+        <label>Endpoint (host or host:port, no scheme)</label>
+        <input type="text" name="endpoint" value="{{.S3.Endpoint}}" placeholder="s3.amazonaws.com" required>
+      </div>
+      <div>
+        <label>Region</label>
+        <input type="text" name="region" value="{{.S3.Region}}" placeholder="us-east-1">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Bucket</label>
+        <input type="text" name="bucket" value="{{.S3.Bucket}}" required>
+      </div>
+      <div>
+        <label>Key prefix (optional)</label>
+        <input type="text" name="prefix" value="{{.S3.Prefix}}" placeholder="exports/">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Access key (optional)</label>
+        <input type="text" name="access_key" value="{{.S3.AccessKey}}" autocomplete="off">
+      </div>
+      <div>
+        <label>Secret key (optional)</label>
+        <input type="password" name="secret_key" value="{{.S3.SecretKey}}" autocomplete="off">
+      </div>
+    </div>
+    <label><input type="checkbox" name="use_ssl" value="1" {{if .S3.UseSSL}}checked{{end}}> Use HTTPS (recommended)</label>
+    <label><input type="checkbox" name="path_style" value="1" {{if .S3.PathStyle}}checked{{end}}> Path-style addressing (required for most non-AWS S3 servers)</label>
+    <label><input type="checkbox" name="public" value="1" {{if .S3.Public}}checked{{end}}> Bucket is publicly readable — return a direct URL instead of a presigned 24h URL</label>
+    <label>Public base URL override (optional)</label>
+    <input type="text" name="public_base_url" value="{{.S3.PublicBaseURL}}" placeholder="https://cdn.example.com">
+    <div class="hint">Only used when "Bucket is publicly readable" is checked. If set, the share URL is built as
+      <span class="kbd">&lt;public_base_url&gt;/&lt;key&gt;</span>; otherwise it is
+      <span class="kbd">&lt;scheme&gt;://&lt;endpoint&gt;/&lt;bucket&gt;/&lt;key&gt;</span>.</div>
+    <div class="button-row">
+      <button type="submit">Save</button>
+      <button type="button" class="secondary" onclick="testS3(this)">Test connection</button>
+    </div>
+    <div class="test-result"></div>
+  </form>
+</div>
+
+<script>
+async function testS3(btn) {
+  const form = btn.closest('form');
+  const params = new URLSearchParams(new FormData(form)).toString();
+  const out = form.querySelector('.test-result');
+  out.textContent = 'testing…';
+  try {
+    const r = await fetch('/settings/s3/test', {
+      method: 'POST',
+      body: params,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const t = await r.text();
+    out.textContent = (r.ok ? '✓ ' : '✗ ') + t;
+    out.style.color = r.ok ? 'var(--ok)' : 'var(--err)';
+  } catch (e) {
+    out.textContent = 'network error: ' + e;
+    out.style.color = 'var(--err)';
+  }
+}
+</script>
+{{template "footer" .}}

@@ -3,8 +3,10 @@
 // into a target Prometheus instance via the remote-write protocol.
 //
 // The UI is a tiny html/template-based site (Connection / Export /
-// Import / Status). State is persisted as JSON under a state directory
-// (default ~/.local/state/prom-clip/state.json, chmod 600).
+// Import / Status). State is persisted as JSON under an OS-native state
+// directory (see DefaultStateDir): %LOCALAPPDATA%\prom-clip on Windows,
+// ~/.local/state/prom-clip on Linux/macOS, both with chmod 600 on the
+// state.json file.
 package promclip
 
 import (
@@ -12,17 +14,35 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
 
-// Connection holds the coordinates of a Prometheus endpoint used either
-// as the source of an export or the target of an import.
+// Connection holds the coordinates of a single Prometheus endpoint.
+// The same connection acts as the source in Export mode and as the
+// target (remote-write receiver) in Import mode.
 type Connection struct {
 	URL      string `json:"url"`
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
 	Insecure bool   `json:"insecure,omitempty"`
+}
+
+// S3Target is the user-configured S3-compatible destination for the
+// optional "push to S3" step at the end of an export. Empty Bucket
+// means S3 is not configured.
+type S3Target struct {
+	Endpoint      string `json:"endpoint"`         // host or host:port, no scheme
+	Region        string `json:"region,omitempty"` // defaults to "us-east-1"
+	Bucket        string `json:"bucket"`
+	Prefix        string `json:"prefix,omitempty"` // optional key prefix
+	AccessKey     string `json:"access_key,omitempty"`
+	SecretKey     string `json:"secret_key,omitempty"`
+	UseSSL        bool   `json:"use_ssl"`         // toggle https://
+	PathStyle     bool   `json:"path_style"`      // path-style addressing (true for most non-AWS S3)
+	Public        bool   `json:"public"`          // return a direct URL instead of a presigned one
+	PublicBaseURL string `json:"public_base_url,omitempty"`
 }
 
 // Kind enumerates the two run types.
@@ -64,20 +84,35 @@ type Run struct {
 	TargetURL string `json:"target_url,omitempty"`
 }
 
-// State is the persisted store: last connections and run history.
+// State is the persisted store: the single Prometheus connection, the
+// optional S3 target, and the run history.
 type State struct {
-	LastSource Connection `json:"last_source"`
-	LastTarget Connection `json:"last_target"`
-	Runs       []Run      `json:"runs"`
+	LastConnection Connection `json:"last_connection"`
+	S3             S3Target   `json:"s3,omitempty"`
+	Runs           []Run      `json:"runs"`
 
 	mu   sync.Mutex
 	path string
 }
 
+// stateOnDisk mirrors State but also carries the legacy split fields
+// (last_source / last_target). It is used only at load time so older
+// state.json files migrate transparently into LastConnection.
+type stateOnDisk struct {
+	LastConnection Connection `json:"last_connection"`
+	S3             S3Target   `json:"s3,omitempty"`
+	LegacySource   Connection `json:"last_source,omitempty"`
+	LegacyTarget   Connection `json:"last_target,omitempty"`
+	Runs           []Run      `json:"runs"`
+}
+
 // LoadState reads (or creates) the state file at path. Missing file is
 // not an error; callers get an empty State whose Save() writes to path.
 // The file is created/maintained with 0600 perms since it may carry
-// Prometheus basic-auth credentials.
+// Prometheus basic-auth credentials. State written by an older version
+// (with separate last_source / last_target fields) is migrated in place
+// on the first save: the first non-empty of the two becomes the unified
+// last_connection.
 func LoadState(path string) (*State, error) {
 	s := &State{path: path}
 	b, err := os.ReadFile(path)
@@ -87,8 +122,31 @@ func LoadState(path string) (*State, error) {
 		}
 		return nil, fmt.Errorf("read state %s: %w", path, err)
 	}
-	if err := json.Unmarshal(b, s); err != nil {
+	var d stateOnDisk
+	if err := json.Unmarshal(b, &d); err != nil {
 		return nil, fmt.Errorf("parse state %s: %w", path, err)
+	}
+	s.LastConnection = d.LastConnection
+	s.S3 = d.S3
+	s.Runs = d.Runs
+	migrated := false
+	if s.LastConnection.URL == "" {
+		switch {
+		case d.LegacySource.URL != "":
+			s.LastConnection = d.LegacySource
+			migrated = true
+		case d.LegacyTarget.URL != "":
+			s.LastConnection = d.LegacyTarget
+			migrated = true
+		}
+	} else if d.LegacySource.URL != "" || d.LegacyTarget.URL != "" {
+		// Legacy fields present alongside the unified one: drop them.
+		migrated = true
+	}
+	if migrated {
+		s.mu.Lock()
+		_ = s.save()
+		s.mu.Unlock()
 	}
 	return s, nil
 }
@@ -115,27 +173,35 @@ func (s *State) save() error {
 	return nil
 }
 
-// SetLastSource records the last Prometheus used as an export source.
-func (s *State) SetLastSource(c Connection) error {
+// SetLastConnection records the last Prometheus the user configured.
+// The same value is reused as export source and import target.
+func (s *State) SetLastConnection(c Connection) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.LastSource = c
+	s.LastConnection = c
 	return s.save()
 }
 
-// SetLastTarget records the last Prometheus used as an import target.
-func (s *State) SetLastTarget(c Connection) error {
+// Snapshot returns a copy of the current LastConnection.
+func (s *State) Snapshot() Connection {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.LastTarget = c
+	return s.LastConnection
+}
+
+// SetS3 records the S3 target configuration.
+func (s *State) SetS3(t S3Target) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.S3 = t
 	return s.save()
 }
 
-// Snapshot returns a copy of the current LastSource / LastTarget.
-func (s *State) Snapshot() (src, tgt Connection) {
+// S3Snapshot returns a copy of the current S3 target.
+func (s *State) S3Snapshot() S3Target {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.LastSource, s.LastTarget
+	return s.S3
 }
 
 // AddRun inserts r at the head of the run history (newest first) and
@@ -187,11 +253,18 @@ func (s *State) GetRun(id string) *Run {
 	return nil
 }
 
-// DefaultStateDir is ~/.local/state/prom-clip (XDG-ish), with $HOME
-// resolved via os.UserHomeDir().
+// DefaultStateDir resolves the OS-native location for state.json and
+// the exports directory. On Windows it follows the Windows convention
+// (%LOCALAPPDATA%\prom-clip via os.UserCacheDir); elsewhere it follows
+// XDG (~/.local/state/prom-clip, honoring $XDG_STATE_HOME).
 func DefaultStateDir() string {
 	if d := os.Getenv("XDG_STATE_HOME"); d != "" {
 		return filepath.Join(d, "prom-clip")
+	}
+	if runtime.GOOS == "windows" {
+		if d, err := os.UserCacheDir(); err == nil {
+			return filepath.Join(d, "prom-clip")
+		}
 	}
 	if h, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(h, ".local", "state", "prom-clip")
