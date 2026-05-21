@@ -2,8 +2,8 @@ name: Release
 
 # Triggers on annotated/lightweight tags shaped like vX.Y.Z(-suffix).
 # Builds the Windows binary + MSI, the Linux tarball, and the multi-arch
-# Docker image, then publishes them on a new GitHub Release whose name
-# and tag both come from the pushed tag.
+# Docker images (ssv-prom-exporter + prom-clip), then publishes them on
+# a new GitHub Release whose name and tag both come from the pushed tag.
 
 on:
   push:
@@ -123,7 +123,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute image metadata
+      - name: Compute exporter image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -133,7 +133,7 @@ jobs:
             type=raw,value=latest
             type=semver,pattern={{major}}.{{minor}},value=${{ steps.tag.outputs.tag }}
 
-      - name: Build and push image
+      - name: Build and push exporter image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -145,3 +145,26 @@ jobs:
             VERSION=${{ steps.tag.outputs.tag }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Compute prom-clip image metadata
+        id: meta_promclip
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/prom-clip
+          tags: |
+            type=raw,value=${{ steps.tag.outputs.tag }}
+            type=raw,value=latest
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.tag.outputs.tag }}
+
+      - name: Build and push prom-clip image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.prom-clip
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          build-args: |
+            VERSION=${{ steps.tag.outputs.tag }}
+          tags: ${{ steps.meta_promclip.outputs.tags }}
+          labels: ${{ steps.meta_promclip.outputs.labels }}

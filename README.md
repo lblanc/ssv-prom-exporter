@@ -489,6 +489,41 @@ The target Prometheus must run with `--web.enable-remote-write-receiver`
 the imported window. The bundled `deploy/` stack exposes both behind
 the `PROM_REMOTE_WRITE` opt-in (see the section above).
 
+### Run prom-clip from the compose stack
+
+The deploy stack ships a `clip` compose profile that runs prom-clip
+alongside Prometheus + Grafana, against the same Docker network so the
+UI reaches the stack's Prometheus by hostname (`http://prometheus:9090`):
+
+```sh
+cd deploy
+docker compose --profile clip up -d --build
+# UI: http://127.0.0.1:8088 (loopback only)
+```
+
+Combine `--profile clip` with `--profile full` to also run the
+ssv-prom-exporter in the same stack:
+
+```sh
+docker compose --profile full --profile clip up -d --build
+```
+
+Container details: the prom-clip service binds host port
+`127.0.0.1:8088` (no Windows Firewall prompt, no external exposure),
+runs as nonroot uid 65532, and persists its state on a named volume
+`prom-clip-state` so the last Prometheus connection survives
+`docker compose restart`. To reach a Prometheus running on the
+docker host (not the compose network), use
+`http://host.docker.internal:9090` in the UI.
+
+A pre-built multi-arch image is published on GHCR with every release:
+
+```sh
+docker run --rm -p 127.0.0.1:8088:8088 \
+    -v prom-clip-state:/var/lib/prom-clip \
+    ghcr.io/lblanc/prom-clip:latest
+```
+
 ## High availability / failover
 
 The exporter falls over to a backup management server when the primary

@@ -1210,6 +1210,36 @@ prom-clip import -dst http://prom-target:9090 \
       URL, or a direct URL for a public bucket). Useful to share an
       export as a single link rather than a file attachment.
     </p>
+
+    <h3>Run from the compose stack</h3>
+    <p>
+      The <code>deploy/</code> stack ships a <code>clip</code> compose
+      profile that runs prom-clip alongside Prometheus + Grafana on the
+      same Docker network. The UI reaches the stack's Prometheus by
+      hostname (<code>http://prometheus:9090</code>):
+    </p>
+<pre>cd deploy
+docker compose --profile clip up -d --build
+<span class="c"># UI: http://127.0.0.1:8088 (loopback only)</span></pre>
+    <p>
+      Combine with <code>--profile full</code> to also run the
+      ssv-prom-exporter in the same stack:
+    </p>
+<pre>docker compose --profile full --profile clip up -d --build</pre>
+    <p>
+      State persists on a named Docker volume
+      <code>prom-clip-state</code> so the last Prometheus connection
+      survives <code>docker compose restart</code>. To wipe history:
+      <code>docker compose --profile clip down -v</code>.
+    </p>
+    <p>
+      A pre-built multi-arch image (linux/amd64 + linux/arm64) is
+      published on GHCR with every release at
+      <code>ghcr.io/lblanc/prom-clip:vX.Y.Z</code> /
+      <code>:latest</code>. To reach a Prometheus running on the Docker
+      host (not in the compose network), the container resolves
+      <code>http://host.docker.internal:9090</code>.
+    </p>
   </section>
 
   <section id="operate">

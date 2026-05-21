@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1.7
+
+# ------------------------------------------------------------------
+# Stage 1 — build the static linux binary.
+# ------------------------------------------------------------------
+FROM golang:1.26-alpine AS builder
+
+ARG VERSION=dev
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build \
+      -trimpath \
+      -ldflags "-s -w -X main.version=${VERSION}" \
+      -o /out/prom-clip \
+      ./cmd/prom-clip
+
+# ------------------------------------------------------------------
+# Stage 2 — minimal runtime.
+# ------------------------------------------------------------------
+FROM alpine:3.20
+
+ARG VERSION=dev
+
+LABEL org.opencontainers.image.title="prom-clip" \
+      org.opencontainers.image.description="Clip a time window from one Prometheus and replay it into another (OpenMetrics export + remote-write import)." \
+      org.opencontainers.image.source="https://github.com/lblanc/ssv-prom-exporter" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}"
+
+RUN apk add --no-cache ca-certificates tini wget \
+ && addgroup -S -g 65532 promclip \
+ && adduser  -S -G promclip -u 65532 -h /var/lib/prom-clip -s /sbin/nologin promclip \
+ && mkdir -p /var/lib/prom-clip \
+ && chown 65532:65532 /var/lib/prom-clip
+
+COPY --from=builder /out/prom-clip /usr/local/bin/prom-clip
+COPY LICENSE /licenses/LICENSE
+
+USER 65532:65532
+EXPOSE 8088
+VOLUME ["/var/lib/prom-clip"]
+
+# The UI's home page returns 200 once the HTTP server is listening.
+# 5s start period is enough — there is no upstream scrape to wait for.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD wget --quiet --tries=1 --spider \
+        "http://127.0.0.1:8088/" || exit 1
+
+# tini forwards SIGTERM to the Go binary; the binary handles its own
+# graceful shutdown (see cmd/prom-clip/main.go).
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/prom-clip"]
+# Container default: listen on all interfaces inside the network
+# namespace (the host port mapping carries the loopback restriction),
+# never auto-open a browser, persist state on the mounted volume so
+# the last connection survives `docker compose restart`.
+CMD ["-listen", "0.0.0.0:8088", "-open=false", "-state-dir", "/var/lib/prom-clip"]

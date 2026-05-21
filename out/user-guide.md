@@ -630,6 +630,37 @@ target** (`prom put`-style: private 24 h presigned URL, or a
 direct URL for a public bucket). Useful to mail a customer a
 single link rather than an attachment.
 
+## 17.4 Run prom-clip from the compose stack
+
+The `deploy/` stack ships a `clip` compose profile that runs
+prom-clip alongside Prometheus + Grafana on the same Docker
+network. The UI reaches the stack's Prometheus by hostname
+(`http://prometheus:9090`):
+
+```sh
+cd deploy
+docker compose --profile clip up -d --build
+# UI: http://127.0.0.1:8088 (loopback only — no firewall prompt)
+```
+
+Combine with `--profile full` to also run the ssv-prom-exporter
+in the same stack:
+
+```sh
+docker compose --profile full --profile clip up -d --build
+```
+
+State persists on a named Docker volume `prom-clip-state` so the
+last Prometheus connection survives `docker compose restart`. To
+wipe history: `docker compose --profile clip down -v`.
+
+A pre-built multi-arch image (linux/amd64 + linux/arm64) is
+published on GHCR with every release at
+`ghcr.io/lblanc/prom-clip:vX.Y.Z` / `:latest`. To reach a
+Prometheus running on the Docker host (not in the compose
+network), the container resolves
+`http://host.docker.internal:9090`.
+
 # 18. Where to go next
 
 - Read the deck shipped next to this guide for the design intent and

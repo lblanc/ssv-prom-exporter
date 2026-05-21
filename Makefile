@@ -15,9 +15,14 @@ IMAGE_NAME     ?= lblanc/$(BINARY)
 IMAGE          := $(IMAGE_REGISTRY)/$(IMAGE_NAME)
 IMAGE_TAG      ?= $(VERSION)
 
+# prom-clip image coordinates (separate image, same registry).
+PROMCLIP_IMAGE_NAME ?= lblanc/prom-clip
+PROMCLIP_IMAGE      := $(IMAGE_REGISTRY)/$(PROMCLIP_IMAGE_NAME)
+
 .PHONY: build build-linux build-windows run-ping clean tidy vet test msi \
         tarball-linux docker-build docker-push \
         build-prom-clip build-prom-clip-linux run-prom-clip \
+        docker-build-prom-clip docker-push-prom-clip \
         docs-pdf
 
 build:
@@ -96,6 +101,21 @@ docker-build:
 docker-push: docker-build
 	docker push $(IMAGE):$(IMAGE_TAG)
 	docker push $(IMAGE):latest
+
+# prom-clip Docker image (parallel to the exporter image). Same build
+# pattern: single linux/amd64 layer for local development; the release
+# workflow rebuilds multi-arch via `docker buildx`.
+docker-build-prom-clip:
+	docker build \
+	  --build-arg VERSION=$(VERSION) \
+	  --file Dockerfile.prom-clip \
+	  --tag $(PROMCLIP_IMAGE):$(IMAGE_TAG) \
+	  --tag $(PROMCLIP_IMAGE):latest \
+	  .
+
+docker-push-prom-clip: docker-build-prom-clip
+	docker push $(PROMCLIP_IMAGE):$(IMAGE_TAG)
+	docker push $(PROMCLIP_IMAGE):latest
 
 # Regenerate the operator user-guide PDF from out/user-guide.md. Uses
 # pandoc + weasyprint (Debian: apt install pandoc weasyprint).

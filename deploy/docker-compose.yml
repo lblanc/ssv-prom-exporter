@@ -1,9 +1,9 @@
 # Test stack for ssv-prom-exporter: Prometheus + Grafana with the
 # dashboards pre-provisioned.
 #
-# Two modes:
+# Compose profiles available:
 #
-# 1) External exporters (default) — the exporter runs on the SAN host
+# (default) External exporters — the exporter runs on the SAN host
 #    (or anywhere reachable). Targets are declared via EXPORTER_TARGETS
 #    in .env:
 #        EXPORTER_TARGETS=lab=10.12.110.11:9876,prod=10.0.0.5:9876
@@ -11,15 +11,22 @@
 #        cd deploy && cp .env.example .env && $EDITOR .env
 #        docker compose up -d
 #
-# 2) Full-stack (`--profile full`) — the exporter ALSO runs as a
-#    service in this compose stack. Useful for demos and for sites that
-#    prefer to run everything containerized. Configure with SSV_URL /
-#    SSV_USER / SSV_PASS in .env. Bring up with:
+# --profile full — the ssv-prom-exporter ALSO runs as a service in this
+#    compose stack. Useful for demos and for sites that prefer to run
+#    everything containerized. Configure with SSV_URL / SSV_USER /
+#    SSV_PASS in .env. Bring up with:
 #        docker compose --profile full up -d --build
+#
+# --profile clip — prom-clip companion (web UI on 127.0.0.1:8088) for
+#    clipping a time window from one Prometheus and replaying it into
+#    another. Combinable with --profile full. Bring up with:
+#        docker compose --profile clip up -d --build
+#    State persists in the named volume `prom-clip-state`.
 #
 # Grafana:    http://<host>:3000 (anonymous Viewer enabled by default;
 #                                 admin / GF_ADMIN_PASSWORD to edit)
 # Prometheus: http://<host>:9090
+# prom-clip:  http://127.0.0.1:8088 (only with --profile clip)
 
 services:
   prometheus:
@@ -112,6 +119,35 @@ services:
       retries: 3
       start_period: 30s
 
+  # prom-clip companion (--profile clip). Web UI to clip a time window
+  # from a Prometheus and replay it into another via remote-write.
+  # Reaches the stack's Prometheus on the compose network as
+  # `http://prometheus:9090`; reaches a Prom on the host as
+  # `http://host.docker.internal:9090` (thanks to extra_hosts).
+  prom-clip:
+    image: ${PROM_CLIP_IMAGE:-ghcr.io/lblanc/prom-clip:latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile.prom-clip
+    restart: unless-stopped
+    profiles: ["clip"]
+    ports:
+      # Loopback-only on the host — no Windows Firewall prompt, no
+      # network exposure beyond the machine running compose.
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - prom-clip-state:/var/lib/prom-clip
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider",
+             "http://127.0.0.1:8088/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
 volumes:
   prometheus-data:
   grafana-data:
+  prom-clip-state:
