@@ -17,7 +17,8 @@ IMAGE_TAG      ?= $(VERSION)
 
 .PHONY: build build-linux build-windows run-ping clean tidy vet test msi \
         tarball-linux docker-build docker-push \
-        build-prom-clip build-prom-clip-linux run-prom-clip
+        build-prom-clip build-prom-clip-linux run-prom-clip \
+        docs-pdf
 
 build:
 	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN)/$(BINARY) $(PKG)
@@ -95,6 +96,18 @@ docker-build:
 docker-push: docker-build
 	docker push $(IMAGE):$(IMAGE_TAG)
 	docker push $(IMAGE):latest
+
+# Regenerate the operator user-guide PDF from out/user-guide.md. Uses
+# pandoc + weasyprint (Debian: apt install pandoc weasyprint).
+# Note: out/web-help/index.html is NOT generated from the markdown — it
+# has its own sidebar/scrollspy structure and must be edited by hand,
+# in sync with user-guide.md.
+docs-pdf:
+	@command -v pandoc >/dev/null     || { echo "pandoc not found (apt install pandoc)"; exit 1; }
+	@command -v weasyprint >/dev/null || { echo "weasyprint not found (apt install weasyprint)"; exit 1; }
+	cd out && pandoc --pdf-engine=weasyprint --css=pdf-style.css \
+	    -o user-guide.pdf user-guide.md
+	@echo "built out/user-guide.pdf"
 
 clean:
 	rm -rf $(BIN)/ $(DIST)/
