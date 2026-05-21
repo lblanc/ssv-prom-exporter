@@ -506,6 +506,7 @@
       <a href="#full-stack">Full-stack compose</a>
       <a href="#dashboards">Grafana dashboards</a>
       <a href="#metrics">Metrics cheatsheet</a>
+      <a href="#prom-clip">Companion: prom-clip</a>
     </div>
   </div>
 
@@ -985,6 +986,18 @@ docker compose --profile full up -d --build</pre>
       locally.
     </p>
 
+    <p class="note">
+      The stack's Prometheus is pull-only by default. To also accept
+      inbound backfill from <a href="#prom-clip"><code>prom-clip</code></a>,
+      set <code>PROM_REMOTE_WRITE=1</code> in <code>.env</code>
+      (optionally with <code>PROM_OOO_WINDOW=7d</code>) before bringing
+      it up. That toggles both
+      <code>--web.enable-remote-write-receiver</code> and a matching
+      <code>storage.tsdb.out_of_order_time_window</code>, without
+      which Prometheus silently drops any sample older than the current
+      head block (~2 h) while still returning HTTP 200 on the write.
+    </p>
+
     <h3>Endpoints</h3>
     <ul>
       <li>Grafana — <a href="http://localhost:3000">http://localhost:3000</a>
@@ -1117,6 +1130,88 @@ rate(ssv_server_class_io_operations_total[$__rate_interval])</pre>
   </section>
 
   <!-- ============== Operate ============== -->
+  <!-- ============== Companion: prom-clip ============== -->
+  <section id="prom-clip">
+    <h2>Companion tool: prom-clip</h2>
+
+    <p>
+      A second binary, <code>prom-clip</code>, ships in this repo to
+      <strong>clip a time window from one Prometheus and replay it
+      into another</strong>. The wire format is gzipped OpenMetrics
+      (<code>.txt.gz</code>); the replay path uses Prometheus's
+      remote-write protocol.
+    </p>
+
+    <p>Typical uses:</p>
+    <ul>
+      <li>snapshot a customer site that runs the exporter, mail or share
+          the <code>.txt.gz</code>, replay it into a local lab for triage;</li>
+      <li>ship a demo dataset alongside the dashboards;</li>
+      <li>carry a "before / after" comparison between sites that aren't
+          network-connected.</li>
+    </ul>
+
+    <h3>Web UI (default)</h3>
+    <p>
+      Run <code>prom-clip</code> with no arguments. The UI listens on
+      <code>http://127.0.0.1:8088</code> (loopback only — no Windows
+      Firewall prompt) and opens in the default browser. The mode is
+      <strong>ephemeral by default</strong>: state lives in RAM, exports
+      stream directly to the browser's native Save-As dialog and are
+      removed server-side as soon as the download completes. Nothing
+      accumulates on the host that ran the tool.
+    </p>
+    <p>
+      Pass <code>-state-dir &lt;path&gt;</code> to opt into persistent
+      mode (last connection memorised across sessions, exports
+      accumulated under <code>&lt;state-dir&gt;/exports</code>, rotation
+      via <code>-keep-exports N</code>). When you let prom-clip pick the
+      default, that path follows the OS convention:
+      <code>%LOCALAPPDATA%\prom-clip</code> on Windows,
+      <code>~/.local/state/prom-clip</code> on Linux/macOS.
+    </p>
+
+    <h3>One-shot CLI (no server, no port, no state)</h3>
+<pre>prom-clip export -src http://prom-source:9090 \
+                 -from -1h -to now -step 30s \
+                 -metric '^ssv_.*' \
+                 -out snapshot.txt.gz
+
+prom-clip import -dst http://prom-target:9090 \
+                 -in snapshot.txt.gz</pre>
+    <p>
+      <code>-from</code> / <code>-to</code> accept RFC3339
+      (<code>2026-05-21T09:00:00Z</code>), a Go duration interpreted as
+      <code>now+d</code> (so <code>-1h</code> is "one hour ago"), or the
+      literal <code>now</code>. The <code>-step</code> defaults to
+      <code>15s</code>.
+    </p>
+
+    <h3>Receiver-side requirements</h3>
+    <p>The target Prometheus must run with both:</p>
+    <ul>
+      <li><code>--web.enable-remote-write-receiver</code> — otherwise
+          <code>/api/v1/write</code> returns HTTP 404;</li>
+      <li><code>storage.tsdb.out_of_order_time_window</code> wide enough
+          to cover the imported window — otherwise Prometheus returns
+          HTTP 200 on the write and <strong>silently</strong> drops
+          every sample older than ~2 h (the current head block).</li>
+    </ul>
+    <p>
+      The bundled <a href="#full-stack">full-stack compose</a> exposes
+      both behind the <code>PROM_REMOTE_WRITE</code> opt-in.
+    </p>
+
+    <h3>Optional S3 push</h3>
+    <p>
+      When the export finishes, the web UI can also push the
+      <code>.txt.gz</code> to an S3-compatible bucket configured under
+      <strong>Settings → S3 target</strong> (private 24 h presigned
+      URL, or a direct URL for a public bucket). Useful to share an
+      export as a single link rather than a file attachment.
+    </p>
+  </section>
+
   <section id="operate">
     <h2>Operate</h2>
     <p>This chapter covers high availability, troubleshooting,

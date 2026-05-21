@@ -287,6 +287,15 @@ label from `SSV_GROUP` (default: `full`). The exporter's
 `ports:` block in `deploy/docker-compose.yml` if you want to curl it
 locally.
 
+The stack's Prometheus is pull-only by default. To accept inbound
+backfill from `prom-clip` (see §17), set `PROM_REMOTE_WRITE=1` in
+`.env` before bringing the stack up. That turns on both
+`--web.enable-remote-write-receiver` and
+`storage.tsdb.out_of_order_time_window` (default 7d, override with
+`PROM_OOO_WINDOW`). Without the OOO window Prometheus would silently
+drop any imported sample older than the current head block while still
+returning HTTP 200 on the write.
+
 ## Endpoints
 
 - Grafana — <http://localhost:3000> (anonymous Viewer enabled;
@@ -547,7 +556,81 @@ silently empty your inventory.
   certs. Once your site maintains an internal PKI, plan to flip it
   off — the custom CA pool flag is on the roadmap.
 
-# 17. Where to go next
+# 17. Companion tool: prom-clip
+
+A second binary, `prom-clip`, ships in this repo to **clip a time
+window from one Prometheus and replay it into another**. The wire
+format is gzipped OpenMetrics (`.txt.gz`); the replay path uses
+Prometheus's remote-write protocol.
+
+Typical uses:
+
+- snapshot a customer site that runs the exporter, mail or share the
+  `.txt.gz`, replay it into a local lab for triage;
+- ship a demo dataset alongside the dashboards;
+- carry a "before / after" comparison between sites that aren't
+  network-connected.
+
+## 17.1 Two modes from one binary
+
+**Web UI (default).** Run `prom-clip` with no arguments. The UI
+listens on `http://127.0.0.1:8088` (loopback only — no Windows
+Firewall prompt) and opens in the default browser. The mode is
+**ephemeral by default**: state lives in RAM, exports stream
+directly to the browser's native Save-As dialog and are removed
+server-side as soon as the download completes. Nothing accumulates
+on the host that ran the tool.
+
+Pass `-state-dir <path>` to opt into persistent mode (last
+connection memorised across sessions, exports accumulated under
+`<state-dir>/exports`, rotation via `-keep-exports N`). On Windows
+that path follows the OS convention when you let prom-clip pick a
+default (`%LOCALAPPDATA%\prom-clip`); on Linux/macOS it follows XDG
+(`~/.local/state/prom-clip`).
+
+**One-shot CLI.** No server, no port, no state directory. Idiomatic
+for scripts and CI:
+
+```sh
+prom-clip export -src http://prom-source:9090 \
+                 -from -1h -to now -step 30s \
+                 -metric '^ssv_.*' \
+                 -out snapshot.txt.gz
+
+prom-clip import -dst http://prom-target:9090 \
+                 -in snapshot.txt.gz
+```
+
+`-from` / `-to` accept RFC3339 (`2026-05-21T09:00:00Z`), a Go
+duration interpreted as `now+d` (so `-1h` is "one hour ago"), or
+the literal `now`. The `-step` defaults to 15 s.
+
+## 17.2 Receiver-side requirements
+
+The target Prometheus must run with both:
+
+- `--web.enable-remote-write-receiver` — otherwise `/api/v1/write`
+  returns HTTP 404;
+- `storage.tsdb.out_of_order_time_window` set wide enough to cover
+  the imported window — otherwise Prometheus returns HTTP 200 on the
+  write and **silently** drops every sample older than ~2 h
+  (the current head block).
+
+Both are off by default in stock Prometheus, on purpose: pull is
+the standard mode. The bundled `deploy/` stack exposes them behind
+a single env variable: set `PROM_REMOTE_WRITE=1` in `deploy/.env`
+(optionally with `PROM_OOO_WINDOW=7d`) before bringing the stack
+up.
+
+## 17.3 Optional S3 push
+
+When the export finishes, the web UI can also push the `.txt.gz`
+to an S3-compatible bucket configured under **Settings → S3
+target** (`prom put`-style: private 24 h presigned URL, or a
+direct URL for a public bucket). Useful to mail a customer a
+single link rather than an attachment.
+
+# 18. Where to go next
 
 - Read the deck shipped next to this guide for the design intent and
   the AI-assisted build process.

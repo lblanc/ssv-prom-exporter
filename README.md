@@ -25,6 +25,7 @@ to run on the SSV host itself.
 - [Exposed metrics](#exposed-metrics)
 - [Test stack (Prometheus + Grafana)](#test-stack-prometheus--grafana)
   - [Full stack with the exporter](#full-stack-with-the-exporter)
+- [Companion tool: prom-clip](#companion-tool-prom-clip)
 - [High availability / failover](#high-availability--failover)
 - [Windows service](#windows-service)
 - [Requirements](#requirements)
@@ -435,6 +436,58 @@ taken from `SSV_GROUP` (default: `full`). The exporter's
 `/metrics` is not published on the host by default — uncomment the
 `ports:` block in `deploy/docker-compose.yml` if you want to curl
 it locally while running under `--profile full`.
+
+The stack's Prometheus is pull-only by default. To also accept
+inbound backfill from [`prom-clip`](#companion-tool-prom-clip), set
+`PROM_REMOTE_WRITE=1` in `.env` (optionally with `PROM_OOO_WINDOW=7d`)
+before bringing it up. That turns on both
+`--web.enable-remote-write-receiver` and a matching
+`storage.tsdb.out_of_order_time_window`, without which Prometheus
+silently drops any sample older than the current head block.
+
+## Companion tool: prom-clip
+
+A second binary, `prom-clip`, ships in this repo to **clip a time
+window from one Prometheus and replay it into another**. The wire
+format is gzipped OpenMetrics (`.txt.gz`); the replay path uses
+Prometheus's remote-write protocol.
+
+Typical uses:
+
+- snapshot a customer site that runs the exporter, mail / share the
+  `.txt.gz`, replay it into a local lab for triage;
+- ship a demo dataset alongside the dashboards;
+- carry a "before / after" comparison across sites that aren't
+  network-connected.
+
+Two modes from the same binary:
+
+```sh
+# 1. Web UI on http://127.0.0.1:8088 (loopback only — no Windows
+#    Firewall prompt). Ephemeral by default: state lives in RAM,
+#    export files stream straight to the browser's Save-As dialog
+#    and are removed server-side as soon as the download completes.
+prom-clip
+
+# 2. One-shot CLI — no server, no port, no state directory.
+prom-clip export -src http://prom-source:9090 \
+                 -from -1h -to now -step 30s \
+                 -metric '^ssv_.*' \
+                 -out snapshot.txt.gz
+prom-clip import -dst http://prom-target:9090 \
+                 -in snapshot.txt.gz
+```
+
+Pass `-state-dir <path>` to opt into persistent mode (last connection
+memorised across sessions, exports accumulated, rotation via
+`-keep-exports N`). On Windows the persistent directory follows the
+OS convention (`%LOCALAPPDATA%\prom-clip`); on Linux/macOS it follows
+XDG (`~/.local/state/prom-clip`).
+
+The target Prometheus must run with `--web.enable-remote-write-receiver`
+**and** `storage.tsdb.out_of_order_time_window` set wide enough to cover
+the imported window. The bundled `deploy/` stack exposes both behind
+the `PROM_REMOTE_WRITE` opt-in (see the section above).
 
 ## High availability / failover
 
