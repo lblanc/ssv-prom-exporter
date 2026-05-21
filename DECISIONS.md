@@ -320,6 +320,34 @@ extending the encoder by hand. Acceptable: remote-write 1.0 has
 been frozen for years, and the encoder is small enough to re-read
 end-to-end before any change.
 
+### `prom-clip` is ephemeral by default, persistence is opt-in
+Decision: `prom-clip` with no `-state-dir` flag creates no directory,
+keeps state (last connection, S3 settings, run history) in RAM only,
+writes export files to `os.TempDir()`, and removes each file from
+disk immediately after the browser downloads it (via
+`Content-Disposition: attachment`). Persistent mode (state.json on
+disk, exports accumulated under `<state-dir>/exports/`) is strictly
+opt-in by passing `-state-dir <path>`.
+Rationale: a user review surfaced three real complaints about the
+first-run behaviour — (a) the binary opened a public-network port
+`:8088`, triggering a Windows Firewall prompt; (b) it created a
+state directory under `%USERPROFILE%\.local\state\prom-clip\` with
+no notice and no cleanup; (c) it accumulated `.txt.gz` exports in
+that directory indefinitely. The new default closes (b) and (c)
+entirely and is consistent with the one-shot CLI subcommands added
+the same day (`prom-clip export` / `prom-clip import`), which also
+take no state. The browser's native "Save As" dialog answers the
+"where do you want this file?" question without the tool having to
+invent a default path on the host. (a) was solved independently by
+binding `127.0.0.1` instead of `:8088`.
+Trade-off: closing the UI and reopening it loses the last
+connection / S3 settings — the user retypes them. Acceptable: it's
+a debugging / triage tool, not a daemon. Users who want persistence
+opt in explicitly with `-state-dir <path>`, and on Windows that
+default path follows the OS convention (`%LOCALAPPDATA%\prom-clip`
+via `os.UserCacheDir`) rather than the previous Linux-style
+`%USERPROFILE%\.local\state\` path.
+
 ## What to watch out for
 - The `ServerHost` HTTP header is mandatory on every REST call. Without
   it, the API returns 400 with `ErrorCode 9` (`"No ServerHost header was

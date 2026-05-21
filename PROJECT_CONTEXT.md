@@ -311,3 +311,35 @@ boards had panels we couldn't fill from current metrics). Expose:
   `--web.enable-remote-write-receiver` and
   `storage.tsdb.out_of_order_time_window: 7d` in its YAML — 14
   series / 434 samples round-tripped cleanly.
+- 2026-05-21 — `prom-clip` v0 hardening after a first-run review.
+  Loopback bind by default (`127.0.0.1:8088`) — no Windows Firewall
+  prompt; `-listen 0.0.0.0:8088` keeps the network-exposed mode.
+  **Ephemeral by default**: with no `-state-dir <path>` flag,
+  nothing is written to disk. State lives in RAM (lost at restart);
+  exports go to `os.TempDir()` and are removed immediately after
+  the browser downloads them (via `Content-Disposition: attachment`).
+  Persistent mode opt-in via `-state-dir <path>`; on Windows that
+  default path follows the OS convention (`%LOCALAPPDATA%\prom-clip`
+  via `os.UserCacheDir`). One-shot CLI subcommands
+  `prom-clip export -src -out` and `prom-clip import -dst -in` reuse
+  the existing `promclip.Export()` / `promclip.Import()` functions
+  with no HTTP server, no port, no state directory; `-from` / `-to`
+  accept RFC3339, a Go duration (`-1h` = "1 hour ago"), or `now`.
+  Export rotation in persistent mode via `-keep-exports N` (default
+  20). Multi-line startup banner showing the resolved mode + paths.
+- 2026-05-21 — `deploy/` stack: opt-in inbound remote-write via two
+  new env knobs `PROM_REMOTE_WRITE` and `PROM_OOO_WINDOW`. When
+  `PROM_REMOTE_WRITE=1` is set in `deploy/.env`, the Prometheus
+  entrypoint passes `--web.enable-remote-write-receiver` and
+  `deploy/prometheus/gen-config.sh` emits the matching
+  `storage.tsdb.out_of_order_time_window` block (default 7d). Off
+  by default so the stack stays pull-only in normal use.
+- 2026-05-21 — Docs refreshed for both changes. README,
+  `out/user-guide.md` (+ rebuilt `out/user-guide.pdf` via
+  weasyprint), and `out/web-help/index.html` all gain a dedicated
+  "Companion tool: prom-clip" section, plus a `PROM_REMOTE_WRITE`
+  note in the "Full stack" sections. New `make docs-pdf` Makefile
+  target captures the pandoc + weasyprint command; the HTML help is
+  intentionally NOT generated from the markdown (it has its own
+  sidebar/scrollspy structure that must be edited by hand in
+  parallel).
