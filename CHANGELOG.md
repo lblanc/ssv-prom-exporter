@@ -5,6 +5,48 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.9.0] - unreleased
+
+### Added
+- **`prom-clip` companion tool** (`cmd/prom-clip/` + `internal/promclip/`).
+  Clips a time window from one Prometheus and replays it into another:
+  export queries `/api/v1/query_range` over `[from, to]` at a chosen step
+  and writes a gzipped OpenMetrics file; import streams it back into a
+  target Prometheus via the remote-write protocol (snappy-compressed
+  protobuf, batched). Two modes from one binary — a loopback web UI on
+  `127.0.0.1:8088` (Connection / Export / Import / Status pages) and
+  one-shot `prom-clip export` / `prom-clip import` CLI subcommands with
+  no server, port or state directory. **Ephemeral by default**: state in
+  RAM, exports stream to the browser and are removed after download;
+  `-state-dir <path>` opts into persistence (with `-keep-exports N`
+  rotation). Optional S3 push on export. The remote-write payload is
+  encoded by a hand-rolled ~100-line protobuf writer rather than pulling
+  in the full `prometheus/prometheus` module.
+- **`prom-clip` Docker image and compose profile.** New
+  `Dockerfile.prom-clip` (alpine:3, nonroot, tini, ~30 MB) and a `clip`
+  profile in `deploy/docker-compose.yml` running the UI on host loopback
+  `127.0.0.1:8088` with state on a named volume, combinable with
+  `--profile full`. The release workflow publishes a parallel multi-arch
+  image at `ghcr.io/lblanc/prom-clip` (`vX.Y.Z`, `X.Y`, `latest`); CI
+  gates a no-push build of both images.
+- **Opt-in inbound remote-write on the `deploy/` stack.** Two new `.env`
+  knobs: `PROM_REMOTE_WRITE=1` turns on
+  `--web.enable-remote-write-receiver`, and `PROM_OOO_WINDOW` (default
+  `7d`) emits the matching `storage.tsdb.out_of_order_time_window` so
+  backfilled samples land instead of being silently dropped. Off by
+  default — the stack stays pull-only in normal use.
+
+### Documentation
+- README rewritten **Docker-Compose-first** (three deployment scenarios
+  by profile, full `.env` and command examples, `.env` / flag reference,
+  command cheat-sheet).
+- Online help (`out/web-help/index.html`) rebuilt around the compose
+  workflow with live screenshots captured headless against the PSP 20
+  lab (five Grafana dashboards, Prometheus targets, prom-clip UI), and a
+  matching 30-page PDF generated from it
+  (`out/web-help/ssv-prom-exporter-compose-guide.pdf`).
+- `make docs-pdf` target for regenerating the operator user guide.
+
 ## [v0.8.1] - 2026-05-20
 
 ### Fixed

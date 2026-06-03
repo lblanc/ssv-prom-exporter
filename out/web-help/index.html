@@ -1,1582 +1,663 @@
 <!DOCTYPE html>
 <html lang="en" class="ssv-help">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Welcome to ssv-prom-exporter Help</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;700&family=Montserrat:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --dc-bg-dark:    #002D3F;   /* topbar + sidebar */
-      --dc-bg-active:  #375A69;   /* selected sub-entry in sidebar */
-      --dc-cyan:       #00BCBC;
-      --dc-gold:       #F4BA00;
-      --dc-h1:         #3B6475;   /* H1 + body-link teal-grey */
-      --dc-text:       #1F2D34;
-      --dc-link:       #3B6475;
-      --dc-link-hov:   #00557A;
-      --dc-soft:       #F2F6F8;
-      --dc-rule:       #DDE3E6;
-      --dc-grey:       #707D85;
-      --topbar-h:      84px;
-      --sidebar-w:     256px;
-      --content-max:   960px;
-    }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ssv-prom-exporter — Docker Compose guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;700&family=Montserrat:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#002D3F; --navy2:#013a52; --cyan:#00BCBC; --gold:#F4BA00;
+    --h1:#3B6475; --text:#1F2D34; --link:#00557A; --soft:#F2F6F8;
+    --rule:#DDE3E6; --grey:#707D85; --ok:#3FA34D; --warn:#C9700A;
+    --topbar-h:72px; --sidebar-w:280px; --content-max:980px;
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#fff;}
+  body{font-family:"Montserrat","Segoe UI",Arial,sans-serif;font-size:14.5px;line-height:1.6;color:var(--text);}
 
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; background: #FFFFFF; }
-    body {
-      font-family: "Montserrat", "Calibri", "Segoe UI", Arial, sans-serif;
-      font-size: 14.4px;
-      line-height: 1.55;
-      color: var(--dc-text);
-    }
+  /* topbar */
+  .topbar{position:fixed;top:0;left:0;right:0;height:var(--topbar-h);background:var(--navy);
+    color:#fff;display:flex;align-items:center;z-index:100;font-family:"Kanit",sans-serif;
+    box-shadow:0 1px 0 rgba(0,0,0,.15);}
+  .brand{display:flex;align-items:center;gap:13px;padding-left:24px;width:var(--sidebar-w);flex:0 0 var(--sidebar-w);}
+  .logo-icon{width:38px;height:38px;border-radius:50%;background:var(--cyan);color:var(--navy);
+    display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;}
+  .brand-text{display:flex;flex-direction:column;line-height:1.12;}
+  .brand-corp{font-weight:700;font-size:16px;letter-spacing:1.4px;}
+  .brand-prod{color:#9FC2CE;font-weight:500;font-size:12px;letter-spacing:.3px;}
+  .topbar .title{flex:1 1 auto;font-size:16px;font-weight:400;color:#dbe7ec;padding-left:8px;}
+  .topbar .pdf{margin-right:22px;}
+  .topbar .pdf a{display:inline-flex;align-items:center;gap:8px;background:var(--cyan);color:var(--navy);
+    text-decoration:none;font-weight:600;font-family:"Montserrat";font-size:13px;padding:8px 15px;border-radius:5px;}
 
-    /* ============== Topbar ============== */
-    .topbar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: var(--topbar-h);
-      background: var(--dc-bg-dark);
-      color: #fff;
-      display: flex;
-      align-items: stretch;
-      z-index: 100;
-      font-family: "Kanit", "Verdana", sans-serif;
-    }
+  /* sidebar */
+  .sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--sidebar-w);background:var(--navy);
+    overflow-y:auto;padding:14px 0 40px;z-index:90;}
+  .sidebar a{display:block;color:#c6d6dc;text-decoration:none;padding:7px 24px;font-size:13.5px;border-left:3px solid transparent;}
+  .sidebar a:hover{color:#fff;background:rgba(255,255,255,.05);}
+  .sidebar a.active{color:#fff;border-left-color:var(--cyan);background:#013a52;}
+  .sidebar .grp{color:#6f8a95;font-size:11px;letter-spacing:1.3px;text-transform:uppercase;
+    padding:16px 24px 5px;font-weight:600;}
 
-    /* Brand area (mimics DataCore .logo block: 300×70 with bg image) */
-    .topbar .brand {
-      width: 300px;
-      flex: 0 0 300px;
-      display: flex; align-items: center;
-      padding-left: 26px;
-      border-right: 1px solid rgba(255,255,255,0.10);
-    }
-    .brand-mark {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-    }
-    .brand-mark .logo-icon {
-      display: inline-flex;
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      background: var(--dc-cyan);
-      color: var(--dc-bg-dark);
-      align-items: center; justify-content: center;
-      font-family: "Kanit", sans-serif;
-      font-weight: 700;
-      font-size: 16px;
-      letter-spacing: 0.5px;
-    }
-    .brand-mark .brand-text {
-      display: flex; flex-direction: column; line-height: 1.1;
-    }
-    .brand-mark .brand-corp {
-      color: #FFFFFF;
-      font-weight: 700;
-      font-size: 17px;
-      letter-spacing: 1.5px;
-    }
-    .brand-mark .brand-prod {
-      color: #B3CCD5;
-      font-weight: 500;
-      font-size: 13px;
-      letter-spacing: 0.4px;
-      margin-top: 1px;
-    }
+  /* main */
+  .main{margin-left:var(--sidebar-w);padding:calc(var(--topbar-h) + 26px) 48px 80px;max-width:calc(var(--content-max) + var(--sidebar-w));}
+  .wrap{max-width:var(--content-max);}
+  section{scroll-margin-top:calc(var(--topbar-h) + 14px);padding-bottom:8px;}
 
-    /* Chapter tabs in the middle */
-    .topbar .tabs {
-      flex: 1 1 auto;
-      display: flex;
-      align-items: stretch;
-      overflow-x: auto;
-      padding: 0 6px;
-    }
-    .topbar .tabs a {
-      display: flex;
-      align-items: center;
-      padding: 0 14px;
-      color: #FFFFFF;
-      font-family: "Kanit", sans-serif;
-      font-weight: 400;
-      font-size: 14.5px;
-      letter-spacing: 0.2px;
-      text-decoration: none;
-      border-bottom: 3px solid transparent;
-      white-space: nowrap;
-    }
-    .topbar .tabs a:hover { color: var(--dc-cyan); }
-    .topbar .tabs a.active {
-      color: #FFFFFF;
-      border-bottom-color: var(--dc-cyan);
-    }
+  h1{font-family:"Kanit",sans-serif;font-weight:500;font-size:30px;color:var(--navy);
+    margin:30px 0 8px;border-bottom:3px solid var(--cyan);padding-bottom:7px;}
+  h2{font-family:"Kanit",sans-serif;font-weight:500;font-size:21px;color:var(--navy);
+    margin:30px 0 8px;border-left:4px solid var(--cyan);padding-left:11px;}
+  h3{font-family:"Kanit",sans-serif;font-weight:500;font-size:16.5px;color:var(--h1);margin:20px 0 5px;}
+  p{margin:7px 0;}
+  a{color:var(--link);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  ul,ol{margin:7px 0 7px 22px;}
+  li{margin:3px 0;}
+  code{font-family:"JetBrains Mono",monospace;font-size:.88em;background:var(--soft);
+    padding:1.5px 5px;border-radius:3px;color:#0a3a4d;}
+  pre{font-family:"JetBrains Mono",monospace;font-size:12.5px;background:var(--navy);color:#e8f1f4;
+    padding:14px 16px;border-radius:6px;overflow-x:auto;line-height:1.5;border-left:4px solid var(--cyan);
+    margin:10px 0;}
+  pre code{background:transparent;color:inherit;padding:0;}
+  pre .c{color:#7fa8b4;}   /* comment */
+  pre .k{color:#ffd866;}   /* keyword / flag */
+  pre .s{color:#a9dc76;}   /* string / value */
 
-    /* Right side: search + PDF */
-    .topbar .actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 22px 0 14px;
-      flex: 0 0 auto;
-    }
-    .topbar .search {
-      display: flex; align-items: center;
-      background: #FFFFFF;
-      border-radius: 2px;
-      width: 240px;
-      height: 30px;
-      padding: 0 10px;
-    }
-    .topbar .search input {
-      flex: 1;
-      border: 0; outline: none; background: transparent;
-      color: var(--dc-text);
-      font-family: "Montserrat", sans-serif;
-      font-size: 13px;
-    }
-    .topbar .search .icon {
-      color: var(--dc-grey);
-      font-size: 13px;
-    }
-    .topbar .download-pdf {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: transparent;
-      color: #FFFFFF;
-      padding: 6px 12px;
-      border: 1px solid rgba(255,255,255,0.35);
-      border-radius: 2px;
-      text-decoration: none;
-      font-family: "Kanit", sans-serif;
-      font-weight: 500;
-      font-size: 12.5px;
-      letter-spacing: 0.4px;
-    }
-    .topbar .download-pdf:hover { border-color: var(--dc-cyan); color: var(--dc-cyan); }
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px;}
+  th,td{border:1px solid var(--rule);padding:6px 9px;vertical-align:top;text-align:left;}
+  th{background:var(--navy);color:#fff;font-weight:600;}
+  tr:nth-child(even) td{background:var(--soft);}
+  td code{font-size:.92em;}
 
-    /* ============== Sidebar ============== */
-    .sidebar {
-      position: fixed;
-      top: var(--topbar-h); left: 0; bottom: 0;
-      width: var(--sidebar-w);
-      background: var(--dc-bg-dark);
-      color: #fff;
-      overflow-y: auto;
-      padding: 8px 0 24px 0;
-      z-index: 50;
-      font-family: "Montserrat", sans-serif;
-    }
-    .sidebar::-webkit-scrollbar { width: 8px; }
-    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 4px; }
+  figure{margin:16px 0;border:1px solid var(--rule);border-radius:7px;overflow:hidden;background:#fff;
+    box-shadow:0 2px 8px rgba(0,40,60,.07);break-inside:avoid;}
+  figure img{display:block;width:100%;height:auto;}
+  figcaption{font-size:12.5px;color:var(--grey);padding:8px 12px;background:var(--soft);border-top:1px solid var(--rule);}
 
-    .sidebar .chapter { border-top: 1px solid rgba(255,255,255,0.04); }
-    .sidebar .chapter:first-child { border-top: 0; }
+  .note,.warn,.tip{border-radius:6px;padding:11px 15px;margin:13px 0;font-size:13.5px;break-inside:avoid;}
+  .note{background:#eef6f9;border-left:4px solid var(--cyan);}
+  .warn{background:#fdf3e3;border-left:4px solid var(--gold);}
+  .tip{background:#eef7ee;border-left:4px solid var(--ok);}
+  .note b,.warn b,.tip b{color:var(--navy);}
 
-    .sidebar .chapter > .chapter-head {
-      display: flex; align-items: center;
-      padding: 11px 16px 11px 14px;
-      color: #FFFFFF;
-      font-family: "Kanit", "Verdana", sans-serif;
-      font-weight: 500;
-      font-size: 16.8px;
-      text-decoration: none;
-      cursor: pointer;
-      line-height: 1.25;
-      user-select: none;
-    }
-    .sidebar .chapter > .chapter-head:hover { background: rgba(255,255,255,0.04); }
-    .sidebar .chapter.open > .chapter-head { color: #FFFFFF; }
-    .sidebar .chapter.current > .chapter-head { background: var(--dc-bg-active); }
-    .sidebar .chapter > .chapter-head .caret {
-      margin-left: auto;
-      width: 10px; height: 10px;
-      position: relative;
-      transition: transform 0.18s ease;
-      opacity: 0.7;
-    }
-    .sidebar .chapter > .chapter-head .caret::before {
-      content: "";
-      position: absolute;
-      left: 2px; top: 0;
-      width: 5px; height: 5px;
-      border-right: 2px solid #fff;
-      border-bottom: 2px solid #fff;
-      transform: rotate(-45deg);
-    }
-    .sidebar .chapter.open > .chapter-head .caret { transform: rotate(90deg); }
+  .lede{font-size:16px;color:#41535c;}
+  .pill{display:inline-block;background:var(--cyan);color:var(--navy);font-weight:600;font-size:11px;
+    padding:2px 9px;border-radius:11px;letter-spacing:.4px;}
+  .scenario-h{display:flex;align-items:center;gap:11px;}
 
-    .sidebar .chapter > .pages {
-      display: none;
-      padding-bottom: 4px;
-    }
-    .sidebar .chapter.open > .pages { display: block; }
-
-    .sidebar .pages a {
-      display: block;
-      padding: 7px 14px 7px 34px;
-      color: #DCE8EC;
-      text-decoration: none;
-      font-size: 14px;
-      line-height: 1.35;
-    }
-    .sidebar .pages a:hover { background: rgba(255,255,255,0.06); color: #fff; }
-    .sidebar .pages a.current {
-      background: var(--dc-bg-active);
-      color: #FFFFFF;
-    }
-
-    /* ============== Main ============== */
-    .main {
-      margin-left: var(--sidebar-w);
-      margin-top: var(--topbar-h);
-      padding: 18px 32px 80px 32px;
-      max-width: calc(var(--sidebar-w) + var(--content-max));
-    }
-    .content { max-width: var(--content-max); }
-
-    .breadcrumb {
-      color: var(--dc-grey);
-      font-size: 12.5px;
-      margin: 0 0 14px 0;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--dc-rule);
-    }
-    .breadcrumb .prefix { color: var(--dc-grey); }
-    .breadcrumb a {
-      color: var(--dc-link);
-      text-decoration: none;
-    }
-    .breadcrumb a:hover { text-decoration: underline; }
-    .breadcrumb .sep { margin: 0 4px; color: var(--dc-grey); }
-
-    h1, h2, h3, h4 {
-      font-family: "Kanit", "Verdana", sans-serif;
-      color: var(--dc-h1);
-      font-weight: 700;
-    }
-    h1 {
-      font-size: 28.8px;
-      margin: 6px 0 14px 0;
-      line-height: 1.2;
-    }
-    h2 {
-      font-size: 21.6px;
-      margin: 26px 0 10px 0;
-      padding-bottom: 4px;
-      border-bottom: 1px solid var(--dc-rule);
-      scroll-margin-top: calc(var(--topbar-h) + 8px);
-    }
-    h3 {
-      font-size: 16.8px;
-      color: var(--dc-bg-dark);
-      margin: 18px 0 6px 0;
-      scroll-margin-top: calc(var(--topbar-h) + 8px);
-    }
-    p { margin: 6px 0 12px 0; }
-    a { color: var(--dc-link); text-decoration: none; }
-    a:hover { color: var(--dc-link-hov); text-decoration: underline; }
-
-    /* Decorative subtitle under H1 (italic colorful tagline, mimic DC) */
-    .tagline {
-      color: var(--dc-h1);
-      font-style: italic;
-      margin: 0 0 14px 0;
-      font-size: 15px;
-    }
-    .tagline em { color: var(--dc-gold); font-style: italic; font-weight: 600; }
-    .tagline .pipe { color: var(--dc-cyan); padding: 0 4px; font-style: normal; }
-
-    /* Bulleted link list, the way DC welcome page does "Begin..." */
-    .link-list { list-style: none; padding: 0; margin: 10px 0 18px 0; }
-    .link-list > li {
-      padding: 6px 0 6px 22px;
-      position: relative;
-      line-height: 1.55;
-    }
-    .link-list > li::before {
-      content: "›";
-      position: absolute; left: 6px; top: 4px;
-      color: var(--dc-cyan);
-      font-weight: 700;
-      font-size: 16px;
-      line-height: 1.4;
-    }
-    .link-list .lnk {
-      font-weight: 600;
-      color: var(--dc-link);
-    }
-    .link-list .lnk:hover { color: var(--dc-link-hov); text-decoration: underline; }
-
-    /* Code & pre */
-    code {
-      font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
-      font-size: 12.8px;
-      background: var(--dc-soft);
-      color: var(--dc-bg-dark);
-      padding: 1px 5px;
-      border-radius: 3px;
-    }
-    pre {
-      font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
-      font-size: 12.5px;
-      background: var(--dc-bg-dark);
-      color: #E2EEF2;
-      border-radius: 3px;
-      border-left: 4px solid var(--dc-cyan);
-      padding: 12px 16px;
-      overflow-x: auto;
-      line-height: 1.5;
-      margin: 12px 0;
-    }
-    pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
-    pre .k { color: #62D5D5; }
-    pre .c { color: #8AA0AB; font-style: italic; }
-    pre .s { color: #F4BA00; }
-
-    /* Tables */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 12px 0;
-      font-size: 13.4px;
-    }
-    th, td {
-      border: 1px solid var(--dc-rule);
-      padding: 7px 10px;
-      vertical-align: top;
-      text-align: left;
-    }
-    th {
-      background: var(--dc-bg-dark);
-      color: #fff;
-      font-family: "Montserrat", sans-serif;
-      font-weight: 600;
-    }
-    tbody tr:nth-child(even) td { background: #F8FAFB; }
-
-    /* Lists */
-    ul, ol { padding-left: 22px; margin: 8px 0 14px 0; }
-    li { margin: 3px 0; }
-
-    /* Callouts: thin colored bar on the left, neutral background — closer to MadCap Flare look */
-    .note, .tip, .warn {
-      border-left: 4px solid var(--dc-cyan);
-      background: var(--dc-soft);
-      padding: 10px 14px;
-      margin: 12px 0;
-      font-size: 13.5px;
-      line-height: 1.5;
-      border-radius: 0 3px 3px 0;
-    }
-    .tip  { border-left-color: var(--dc-gold); background: #FFF8E3; }
-    .warn { border-left-color: #D9534F; background: #FFEDED; }
-    .note .lbl, .tip .lbl, .warn .lbl {
-      color: var(--dc-bg-dark);
-      font-weight: 700;
-      font-family: "Kanit", sans-serif;
-      margin-right: 4px;
-    }
-
-    /* Figure */
-    figure {
-      margin: 14px 0;
-      padding: 10px;
-      background: var(--dc-soft);
-      border-radius: 3px;
-      border: 1px solid var(--dc-rule);
-      text-align: center;
-    }
-    figure img { max-width: 100%; height: auto; }
-    figcaption { color: var(--dc-grey); font-size: 12px; margin-top: 6px; }
-
-    /* Footer */
-    .footer {
-      margin: 48px 0 0 0;
-      padding-top: 14px;
-      border-top: 1px solid var(--dc-rule);
-      color: var(--dc-grey);
-      font-size: 11.8px;
-      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-    }
-    .footer a { color: var(--dc-link); }
-
-    /* Responsive */
-    @media (max-width: 1100px) {
-      .topbar .tabs a { padding: 0 9px; font-size: 13.8px; }
-      .topbar .search { width: 180px; }
-    }
-    @media (max-width: 900px) {
-      :root { --sidebar-w: 230px; }
-      .topbar .brand { width: 230px; flex-basis: 230px; padding-left: 14px; }
-      .topbar .search { display: none; }
-    }
-    @media (max-width: 760px) {
-      .sidebar { transform: translateX(-100%); transition: transform .2s ease; }
-      .sidebar.open { transform: translateX(0); }
-      .main { margin-left: 0; padding: 14px 18px 60px 18px; }
-      .topbar .tabs { font-size: 12.5px; }
-    }
-  </style>
+  /* print → clean PDF via chromium --print-to-pdf */
+  @media print{
+    :root{--sidebar-w:0px;}
+    .topbar,.sidebar,.pdf{display:none !important;}
+    .main{margin:0;padding:0;max-width:none;}
+    .wrap{max-width:none;}
+    body{font-size:10.7pt;}
+    h1{font-size:20pt;break-before:page;margin-top:0;}
+    section#welcome h1{break-before:avoid;}
+    h2{font-size:14pt;}
+    h3{font-size:11.5pt;}
+    pre{font-size:8.6pt;background:#f4f7f8;color:#0a2630;border-left:3px solid var(--cyan);}
+    pre .c{color:#5f8290;} pre .k{color:#8a5a00;} pre .s{color:#2f6b1a;}
+    a{color:var(--text);}
+    figure{box-shadow:none;}
+    th{background:#002D3F !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    figure,table,.note,.warn,.tip,pre{break-inside:avoid;}
+  }
+  @page{size:A4;margin:16mm 15mm;}
+</style>
 </head>
-
 <body>
 
-<!-- ===================== TOP BAR ===================== -->
 <header class="topbar">
   <div class="brand">
-    <a class="brand-mark" href="#welcome">
-      <span class="logo-icon">SS</span>
-      <span class="brand-text">
-        <span class="brand-corp">DATACORE</span>
-        <span class="brand-prod">ssv-prom-exporter</span>
-      </span>
-    </a>
+    <span class="logo-icon">SSV</span>
+    <span class="brand-text">
+      <span class="brand-corp">DATACORE</span>
+      <span class="brand-prod">SANsymphony Prometheus Exporter</span>
+    </span>
   </div>
-
-  <nav class="tabs">
-    <a href="#welcome"        data-tab="welcome"    class="active">Welcome</a>
-    <a href="#getting-started" data-tab="started">Getting Started</a>
-    <a href="#install-configure" data-tab="install">Install &amp; Configure</a>
-    <a href="#run-observe"    data-tab="observe">Run &amp; Observe</a>
-    <a href="#operate"        data-tab="operate">Operate</a>
-    <a href="#reference"      data-tab="reference">Reference</a>
-  </nav>
-
-  <div class="actions">
-    <div class="search">
-      <span class="icon">🔍</span>
-      <input type="search" placeholder="Search" oninput="ssvSearch(this.value)">
-    </div>
-    <a class="download-pdf" href="../user-guide.pdf" target="_blank" rel="noopener">Download PDF</a>
-  </div>
+  <div class="title">Docker&nbsp;Compose deployment guide</div>
+  <div class="pdf"><a href="ssv-prom-exporter-compose-guide.pdf">⤓ PDF</a></div>
 </header>
 
-<!-- ===================== SIDEBAR ===================== -->
 <nav class="sidebar" id="sidebar">
-  <div class="chapter open current" data-chapter="welcome">
-    <a class="chapter-head" href="#welcome">
-      Welcome to ssv-prom-exporter Help
-      <span class="caret"></span>
-    </a>
-    <div class="pages">
-      <a href="#welcome" class="current">Welcome</a>
-      <a href="#overview">Overview</a>
-    </div>
-  </div>
-
-  <div class="chapter" data-chapter="started">
-    <a class="chapter-head" href="#getting-started">
-      Getting Started
-      <span class="caret"></span>
-    </a>
-    <div class="pages">
-      <a href="#getting-started">About this guide</a>
-      <a href="#requirements">Requirements</a>
-    </div>
-  </div>
-
-  <div class="chapter" data-chapter="install">
-    <a class="chapter-head" href="#install-configure">
-      Install &amp; Configure
-      <span class="caret"></span>
-    </a>
-    <div class="pages">
-      <a href="#install-configure">Install &amp; Configure</a>
-      <a href="#install">Install on Windows</a>
-      <a href="#install-linux">Install on Linux</a>
-      <a href="#docker">Run with Docker</a>
-      <a href="#configure">Configure</a>
-      <a href="#smoke-test">Smoke-test</a>
-    </div>
-  </div>
-
-  <div class="chapter" data-chapter="observe">
-    <a class="chapter-head" href="#run-observe">
-      Run &amp; Observe
-      <span class="caret"></span>
-    </a>
-    <div class="pages">
-      <a href="#run-observe">Run &amp; Observe</a>
-      <a href="#prometheus">Wire to Prometheus</a>
-      <a href="#full-stack">Full-stack compose</a>
-      <a href="#dashboards">Grafana dashboards</a>
-      <a href="#metrics">Metrics cheatsheet</a>
-      <a href="#prom-clip">Companion: prom-clip</a>
-    </div>
-  </div>
-
-  <div class="chapter" data-chapter="operate">
-    <a class="chapter-head" href="#operate">
-      Operate
-      <span class="caret"></span>
-    </a>
-    <div class="pages">
-      <a href="#operate">Operate</a>
-      <a href="#high-availability">High availability</a>
-      <a href="#multi-group">Multi-group deployments</a>
-      <a href="#troubleshoot">Troubleshooting</a>
-      <a href="#day2">Day-2 operations</a>
-      <a href="#security">Security notes</a>
-    </div>
-  </div>
-
-  <div class="chapter" data-chapter="reference">
-    <a class="chapter-head" href="#reference">
-      Reference
-      <span class="caret"></span>
-    </a>
-    <div class="pages">
-      <a href="#reference">Reference</a>
-      <a href="#architecture">Architecture</a>
-      <a href="#whatsnext">What's next</a>
-    </div>
-  </div>
+  <div class="grp">Get started</div>
+  <a href="#welcome">Welcome</a>
+  <a href="#architecture">The compose stack</a>
+  <a href="#requirements">Requirements</a>
+  <a href="#quickstart">Quick start</a>
+  <div class="grp">Deployment scenarios</div>
+  <a href="#scenario-a">A — existing exporters</a>
+  <a href="#scenario-b">B — full stack</a>
+  <a href="#scenario-c">C — prom-clip companion</a>
+  <div class="grp">Configuration</div>
+  <a href="#env-reference">.env reference</a>
+  <a href="#exporter-config">Exporter settings</a>
+  <a href="#cheatsheet">Command cheat-sheet</a>
+  <div class="grp">Observe</div>
+  <a href="#dashboards">The Grafana dashboards</a>
+  <a href="#metrics">Exposed metrics</a>
+  <a href="#prom-clip">prom-clip in depth</a>
+  <div class="grp">Operate</div>
+  <a href="#without-compose">Without compose</a>
+  <a href="#ha">HA &amp; multi-group</a>
+  <a href="#troubleshoot">Troubleshooting</a>
+  <a href="#releases">Releases</a>
 </nav>
 
-<!-- ===================== MAIN CONTENT ===================== -->
-<main class="main">
-<div class="content">
+<main class="main"><div class="wrap">
 
-  <p class="breadcrumb" id="breadcrumb">
-    <span class="prefix">You are here:</span>
-    <a href="#welcome">Home</a>
-    <span class="sep">&gt;</span>
-    <span id="bc-current">Welcome to ssv-prom-exporter Help</span>
-  </p>
+<section id="welcome">
+  <h1>ssv-prom-exporter — Docker&nbsp;Compose guide</h1>
+  <p class="lede">A Prometheus exporter for <b>DataCore SANsymphony</b> (SSV) that scrapes the
+  SSV REST API and exposes inventory, health and performance metrics on <code>/metrics</code>.
+  This guide is <b>Docker-Compose-first</b>: the fastest path to a working SANsymphony monitoring
+  stack — Prometheus, Grafana, five ready-made dashboards, and optionally the exporter itself and
+  the <code>prom-clip</code> companion — is the bundled <code>deploy/</code> compose project.</p>
 
-  <!-- ============== Welcome ============== -->
-  <section id="welcome">
-    <h1>Welcome to ssv-prom-exporter Help</h1>
-    <p class="tagline">
-      <em>ssv-prom-exporter</em>
-      <span class="pipe">|</span>
-      A native Prometheus exporter for DataCore SANsymphony,
-      packaged as a single Windows service.
-    </p>
+  <div class="note"><b>Who this is for.</b> Operators who want SANsymphony observability without
+  hand-wiring Prometheus and Grafana. Native Windows-service and Linux-systemd installs are covered
+  briefly in <a href="#without-compose">Running without compose</a> for production nodes that don't
+  run a container runtime.</div>
 
-    <p>
-      <code>ssv-prom-exporter</code> scrapes the SANsymphony REST API
-      and exposes inventory, health, and performance signals on
-      <code>/metrics</code> in the standard Prometheus exposition
-      format. It runs anywhere on the network with TCP/443
-      reachability to a SANsymphony management server — it does
-      <strong>not</strong> need to run on the SANsymphony host.
-    </p>
+  <p>The exporter runs anywhere with TCP/443 reachability to a SSV management server — it does
+  <b>not</b> have to run on the SSV host itself. All screenshots in this guide were captured live
+  against a DataCore PSP 20 lab through this exact compose stack.</p>
+</section>
 
-    <h2 id="getting-started" style="margin-top: 20px;">Begin Here</h2>
-    <ul class="link-list">
-      <li>
-        <a class="lnk" href="#overview">Overview</a> —
-        the three-tier collector model (inventory / health / performance)
-        and how each tier maps to a Prometheus scrape.
-      </li>
-      <li>
-        <a class="lnk" href="#requirements">Requirements</a> —
-        what your SANsymphony deployment, target host, and credentials
-        must look like.
-      </li>
-      <li>
-        <a class="lnk" href="#install">Install on Windows</a> —
-        run the MSI, drop a <code>config.yaml</code> in
-        <code>ProgramData</code>, register the service.
-      </li>
-      <li>
-        <a class="lnk" href="#install-linux">Install on Linux</a> —
-        static binary + hardened systemd unit, installed by
-        <code>install-linux.sh</code>.
-      </li>
-      <li>
-        <a class="lnk" href="#docker">Run with Docker</a> —
-        multi-arch image on GHCR, nonroot, <code>HEALTHCHECK</code>-ed.
-      </li>
-      <li>
-        <a class="lnk" href="#configure">Configure</a> —
-        YAML schema, with strict precedence (flag &gt; env &gt; YAML &gt; default).
-      </li>
-      <li>
-        <a class="lnk" href="#full-stack">Full-stack compose</a> —
-        Prometheus + Grafana + exporter in one
-        <code>docker compose --profile full</code>.
-      </li>
-      <li>
-        <a class="lnk" href="#dashboards">Grafana dashboards</a> —
-        five dashboards ship with the project: Overview, Servers,
-        Storage, Hosts, Ports.
-      </li>
-      <li>
-        <a class="lnk" href="#troubleshoot">Troubleshooting</a> —
-        common symptoms and their root cause, from
-        <code>ServerHost</code> errors to TLS handshakes.
-      </li>
-    </ul>
+<section id="architecture">
+  <h2>The compose stack at a glance</h2>
+  <p>Everything lives under <code>deploy/</code>. The stack is built around <b>three optional
+  services selected by compose profiles</b>, so you only run what you need:</p>
 
-    <h2>Additional Help Resources</h2>
-    <ul class="link-list">
-      <li>
-        <a class="lnk" href="https://github.com/lblanc/ssv-prom-exporter" target="_blank" rel="noopener">GitHub repository</a> —
-        sources, issues, releases, <code>CHANGELOG.md</code>.
-      </li>
-      <li>
-        <a class="lnk" href="../user-guide.pdf" target="_blank" rel="noopener">PDF version of this help</a> —
-        single-file printable copy.
-      </li>
-      <li>
-        <a class="lnk" href="https://docs.datacore.com/SSV-WebHelp/SSV-WebHelp/Welcome_to_DataCore_SANsymphony_Help.htm" target="_blank" rel="noopener">DataCore SANsymphony documentation</a> —
-        for SANsymphony product knowledge (REST API, pools, mirrors, CDP).
-      </li>
-    </ul>
+  <table>
+    <tr><th>Service</th><th>Profile</th><th>Host port</th><th>Role</th></tr>
+    <tr><td><code>prometheus</code></td><td><i>always</i></td><td><code>9090</code></td><td>Scrapes the exporter(s); 15&nbsp;d retention.</td></tr>
+    <tr><td><code>grafana</code></td><td><i>always</i></td><td><code>3000</code></td><td>Five SSV dashboards, anonymous Viewer on.</td></tr>
+    <tr><td><code>exporter</code></td><td><code>full</code></td><td><i>internal</i></td><td>Runs <code>ssv-prom-exporter</code> itself against one SSV group.</td></tr>
+    <tr><td><code>prom-clip</code></td><td><code>clip</code></td><td><code>127.0.0.1:8088</code></td><td>Clip a Prometheus time window and replay it elsewhere.</td></tr>
+  </table>
 
-    <div class="note">
-      <span class="lbl">Note.</span>
-      This exporter is independent from DataCore's official
-      PowerShell-based Prometheus integration. It is offered to
-      remove the four-moving-parts ops cost
-      (PowerShell + Task Scheduler + windows_exporter + textfile
-      collector) and the timestamp drift inherent to the textfile
-      pattern.
-    </div>
-  </section>
+  <p>Profiles compose freely — <code>--profile full --profile clip</code> brings up all four. With no
+  profile flag you get just Prometheus + Grafana, which is <a href="#scenario-a">Scenario&nbsp;A</a>.</p>
 
-  <!-- ============== Overview ============== -->
-  <section id="overview">
-    <h2>Overview</h2>
-    <p>
-      Three independent collectors live inside the binary, each with
-      its own refresh cadence and its own
-      <code>ssv_up{collector}</code> /
-      <code>ssv_scrape_duration_seconds{collector}</code> framing
-      metrics.
-    </p>
-    <table>
-      <thead>
-        <tr><th>Collector</th><th>Cadence</th><th>What it scrapes</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Inventory</td><td>~60 s</td><td>Server groups, servers, pools, virtual disks, SAN-client hosts, SCSI/iSCSI/FC ports, pool-member physical disks, capacity, license expiry.</td></tr>
-        <tr><td>Health</td><td>~30 s</td><td>Per-resource monitor states; one detailed entry per active alert with level, caller, message, age.</td></tr>
-        <tr><td>Performance</td><td>~15 s</td><td>Cumulative byte/op counters and latency timers per server, pool, virtual disk, host, port and physical disk.</td></tr>
-      </tbody>
-    </table>
-    <p>
-      The performance collector splits the server tier by IO pipeline
-      class (<code>front_end_target</code>, <code>mirror_target</code>,
-      <code>physical_disk</code>, <code>pool</code>, <code>target</code>),
-      so latency dashboards show where in the pipeline the time is
-      actually spent.
-    </p>
-  </section>
+<pre><code>                     deploy/docker-compose.yml
+ ┌──────────────────────────────────────────────────────────────┐
+ │  prometheus:9090 ─────────► grafana:3000  (5 dashboards)       │
+ │      ▲ scrape                                                  │
+ │      │                                                         │
+ │  ┌───┴─────────────┐       ┌──────────────────┐               │
+ │  │ exporter:9876   │       │ prom-clip:8088    │               │
+ │  │ (--profile full)│       │ (--profile clip)  │               │
+ │  └───┬─────────────┘       └──────────────────┘               │
+ └──────┼─────────────────────────────────────────────────────────┘
+        │ REST / 443
+        ▼
+  SANsymphony management server(s)</code></pre>
+</section>
 
-  <!-- ============== Requirements ============== -->
-  <section id="requirements">
-    <h2>Requirements</h2>
-    <ul>
-      <li>DataCore SANsymphony <strong>PSP 20+</strong>.</li>
-      <li>A target host (Windows or Linux) with network reachability
-          to a SANsymphony mgmt server on TCP/443.</li>
-      <li>A SANsymphony account that can list <code>/serverGroups</code>,
-          <code>/servers</code>, <code>/pools</code>,
-          <code>/virtualDisks</code>, <code>/hosts</code>,
-          <code>/ports</code>, <code>/physicalDisks</code>,
-          <code>/alerts</code>, <code>/monitors</code>, and read
-          <code>/performance/{id}</code>.</li>
-      <li>An ACL'ed location to drop the YAML configuration file.
-          <code>C:\ProgramData\ssv-prom-exporter\</code> is the
-          recommended path.</li>
-    </ul>
-  </section>
+<section id="requirements">
+  <h2>Requirements</h2>
+  <ul>
+    <li>A Docker host with <b>Compose v2</b> (<code>docker compose</code>, not the legacy <code>docker-compose</code>).</li>
+    <li>DataCore SANsymphony <b>PSP&nbsp;20+</b> (older may work, untested).</li>
+    <li>TCP/443 reachability from wherever the exporter runs to the SSV management server.</li>
+    <li>Outbound network from the Docker host to your exporter targets (Scenario&nbsp;A) or to the
+        SSV REST API (Scenario&nbsp;B).</li>
+  </ul>
+</section>
 
-  <!-- ============== Install & Configure header ============== -->
-  <section id="install-configure">
-    <h2>Install &amp; Configure</h2>
-    <p>This chapter walks through the recommended Windows install,
-       the YAML configuration schema, and a quick smoke-test once the
-       service is running.</p>
-    <ul class="link-list">
-      <li><a class="lnk" href="#install">Install on Windows</a> — MSI install, then service registration.</li>
-      <li><a class="lnk" href="#configure">Configure</a> — YAML schema with strict precedence.</li>
-      <li><a class="lnk" href="#smoke-test">Smoke-test</a> — verify with <code>curl</code> and <code>-ping</code>.</li>
-    </ul>
-  </section>
+<section id="quickstart">
+  <h2>Quick start</h2>
+  <p><b>You already run one or more exporters</b> and just want Prometheus + Grafana:</p>
+<pre><code><span class="c"># clone and enter the compose project</span>
+git clone https://github.com/lblanc/ssv-prom-exporter.git
+cd ssv-prom-exporter/deploy
+cp .env.example .env
+<span class="c"># point EXPORTER_TARGETS at your exporter(s), e.g.</span>
+<span class="c">#   EXPORTER_TARGETS=lab=10.12.110.11:9876,prod=10.0.0.5:9876</span>
+$EDITOR .env
+docker compose up <span class="k">-d</span></code></pre>
+  <p>Grafana → <code>http://localhost:3000</code> (anonymous read-only, no login).
+     Prometheus → <code>http://localhost:9090</code>.</p>
 
-  <!-- ============== Install ============== -->
-  <section id="install">
-    <h2>Install on Windows</h2>
-    <p>
-      This is the recommended path. The MSI installs the binary and
-      the example config to
-      <code>C:\Program Files\ssv-prom-exporter\</code>. It
-      deliberately does <strong>not</strong> register the service —
-      registration is a separate step so credentials never land in
-      MSI properties or in the SCM <code>ImagePath</code>.
-    </p>
-    <p>From an <strong>elevated</strong> prompt (replace
-       <code>X.Y.Z</code> with the version you downloaded):</p>
-<pre><span class="c">:: 1. Run the MSI (silent).</span>
-msiexec /i ssv-prom-exporter-X.Y.Z-x64.msi /qn
+  <p><b>You don't run an exporter yet</b> and want the stack to host it too:</p>
+<pre><code>cd ssv-prom-exporter/deploy
+cp .env.example .env
+<span class="c"># set SSV_URL / SSV_USER / SSV_PASS / SSV_GROUP in .env</span>
+$EDITOR .env
+docker compose <span class="k">--profile</span> <span class="s">full</span> up <span class="k">-d</span> <span class="k">--build</span></code></pre>
+  <p>The next three sections expand each scenario with full <code>.env</code> and command examples.</p>
+</section>
 
-<span class="c">:: 2. Drop the YAML config and tighten ACLs.</span>
-copy "C:\Program Files\ssv-prom-exporter\config.example.yaml" ^
-     "C:\ProgramData\ssv-prom-exporter\config.yaml"
-notepad "C:\ProgramData\ssv-prom-exporter\config.yaml"
-icacls "C:\ProgramData\ssv-prom-exporter\config.yaml" /inheritance:r ^
-       /grant:r SYSTEM:F Administrators:F
+<section id="scenario-a">
+  <h1>Scenario A — monitor exporters that already run elsewhere</h1>
+  <p class="scenario-h"><span class="pill">default profile</span></p>
+  <p>The exporter runs on each SAN host (as a Windows service / systemd unit / standalone
+  container); the compose stack only adds Prometheus + Grafana and scrapes those exporters over
+  the network. This is the normal production topology.</p>
 
-<span class="c">:: 3. Register the service. Only -config lands in the SCM ImagePath.</span>
-"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" ^
-  -install -config "C:\ProgramData\ssv-prom-exporter\config.yaml"
+  <h3>1. Configure <code>deploy/.env</code></h3>
+<pre><code><span class="c"># One entry per SANsymphony group: "groupname=host:port,...".</span>
+<span class="c"># groupname becomes the Prometheus `group` label the dashboards filter on.</span>
+EXPORTER_TARGETS=<span class="s">LAB-PVE=10.12.110.11:9876,HCI104=10.12.104.121:9876</span>
 
-<span class="c">:: 4. Start it.</span>
-sc start ssv-prom-exporter</pre>
-    <p>
-      The service is created with start type <code>Automatic</code>,
-      running as <code>LocalSystem</code>. The Event Log source is
-      registered under the service name; logs land in
-      <strong>Windows Logs → Application</strong> filtered on that
-      source.
-    </p>
-  </section>
+<span class="c"># Grafana admin password (anonymous Viewer is always on; this gates editing).</span>
+GF_ADMIN_PASSWORD=<span class="s">admin</span></code></pre>
+  <p>A single target is just as valid: <code>EXPORTER_TARGETS=lab=10.12.110.11:9876</code>.</p>
 
-  <!-- ============== Install on Linux ============== -->
-  <section id="install-linux">
-    <h2>Install on Linux</h2>
-    <p>
-      The Linux tarball ships a static binary, a hardened systemd unit,
-      and a reference <code>install-linux.sh</code> that lays
-      everything out in one step. As <strong>root</strong>:
-    </p>
-<pre>tar xzf ssv-prom-exporter-vX.Y.Z-linux-amd64.tar.gz
+  <h3>2. Bring it up</h3>
+<pre><code>cd deploy
+docker compose up <span class="k">-d</span>
+docker compose ps</code></pre>
+
+  <h3>3. Verify every target is scraped</h3>
+<pre><code>curl <span class="k">-s</span> http://localhost:9090/api/v1/targets \
+  | jq <span class="k">-r</span> <span class="s">'.data.activeTargets[] | "\(.labels.group)\t\(.scrapeUrl)\t\(.health)"'</span></code></pre>
+  <p>Or open Prometheus → <b>Status → Target health</b>. Each exporter target carries its
+  <code>group</code> label and should read <b>UP</b>:</p>
+  <figure>
+    <img src="stack-01-prom-targets.png" alt="Prometheus target health page">
+    <figcaption>Prometheus <b>Target health</b> — the <code>ssv-prom-exporter</code> job shows
+    <code>2/2 up</code>, one target per SANsymphony group (<code>group="LAB-PVE"</code>,
+    <code>group="HCI104"</code>).</figcaption>
+  </figure>
+
+  <h3>4. Open Grafana</h3>
+  <p>Browse to <code>http://localhost:3000</code> → <b>Dashboards → SSV</b>. Five dashboards are
+  pre-provisioned; pick a group from the <b>Group</b> dropdown on any of them.</p>
+  <figure>
+    <img src="stack-02-grafana-list.png" alt="Grafana SSV dashboard folder">
+    <figcaption>The provisioned <b>SSV</b> folder: Overview, Servers, Storage, Hosts and Ports.</figcaption>
+  </figure>
+</section>
+
+<section id="scenario-b">
+  <h1>Scenario B — run everything in the stack</h1>
+  <p class="scenario-h"><span class="pill">--profile full</span></p>
+  <p>For demos, PoCs, or sites that prefer to run everything containerized: the <code>full</code>
+  profile adds the <code>exporter</code> service to the stack, so you install nothing on the SAN host.
+  Prometheus auto-discovers it on the compose network (<code>exporter:9876</code>).</p>
+
+  <h3>1. Configure <code>deploy/.env</code></h3>
+<pre><code><span class="c"># --- exporter against one SSV group ---</span>
+SSV_URL=<span class="s">https://10.12.110.11</span>        <span class="c"># SSV REST base URL (the mgmt server)</span>
+SSV_USER=<span class="s">administrator</span>
+SSV_PASS=<span class="s">ChangeMe!</span>
+SSV_GROUP=<span class="s">lab</span>                       <span class="c"># becomes the Prometheus `group` label</span>
+
+<span class="c"># Optional failover knobs (see "HA &amp; multi-group")</span>
+<span class="c"># SSV_BASES=10.12.110.12,10.12.110.13</span>
+<span class="c"># SSV_BACKUP_CIDRS=10.12.110.0/24</span>
+
+<span class="c"># Leave EXPORTER_TARGETS unset — Prometheus auto-targets exporter:9876.</span>
+GF_ADMIN_PASSWORD=<span class="s">admin</span></code></pre>
+
+  <h3>2. Bring it up</h3>
+  <p><code>--build</code> builds the exporter image locally from the repo. Drop it to pull
+  <code>ghcr.io/lblanc/ssv-prom-exporter:latest</code> instead.</p>
+<pre><code>cd deploy
+docker compose <span class="k">--profile</span> <span class="s">full</span> up <span class="k">-d</span> <span class="k">--build</span></code></pre>
+
+  <h3>3. Watch it come alive</h3>
+<pre><code>docker compose logs <span class="k">-f</span> exporter
+docker compose exec exporter wget <span class="k">-qO-</span> http://127.0.0.1:9876/metrics | grep <span class="s">'^ssv_up'</span>
+<span class="c"># ssv_up{collector="health"} 1</span>
+<span class="c"># ssv_up{collector="inventory"} 1</span>
+<span class="c"># ssv_up{collector="performance"} 1</span></code></pre>
+
+  <div class="note"><b>Exposing <code>/metrics</code> on the host.</b> It is internal by default.
+  To curl it from the host while in <code>--profile full</code>, uncomment the <code>ports:</code>
+  block on the <code>exporter</code> service in <code>deploy/docker-compose.yml</code>
+  (<code>- "9876:9876"</code>).</div>
+
+  <h3>Pin a released image instead of building</h3>
+<pre><code><span class="c"># in deploy/.env</span>
+EXPORTER_IMAGE=<span class="s">ghcr.io/lblanc/ssv-prom-exporter:v0.8.1</span></code></pre>
+<pre><code>docker compose <span class="k">--profile</span> <span class="s">full</span> up <span class="k">-d</span>        <span class="c"># no --build → pulls EXPORTER_IMAGE</span></code></pre>
+</section>
+
+<section id="scenario-c">
+  <h1>Scenario C — add the prom-clip companion</h1>
+  <p class="scenario-h"><span class="pill">--profile clip</span></p>
+  <p><code>prom-clip</code> clips a time window out of one Prometheus and replays it into another
+  (gzipped OpenMetrics out, remote-write in). The <code>clip</code> profile runs its web UI alongside
+  the stack, bound on host loopback <code>127.0.0.1:8088</code> — no Windows Firewall prompt, no
+  external exposure.</p>
+
+<pre><code>cd deploy
+docker compose <span class="k">--profile</span> <span class="s">clip</span> up <span class="k">-d</span> <span class="k">--build</span>
+<span class="c"># UI: http://127.0.0.1:8088</span></code></pre>
+
+  <p>Combine with <code>--profile full</code> to run the exporter, Prometheus, Grafana <b>and</b>
+  prom-clip together:</p>
+<pre><code>docker compose <span class="k">--profile</span> <span class="s">full</span> <span class="k">--profile</span> <span class="s">clip</span> up <span class="k">-d</span> <span class="k">--build</span></code></pre>
+
+  <figure>
+    <img src="clip-01-connection.png" alt="prom-clip connection page">
+    <figcaption><b>Connection</b> — a single Prometheus endpoint is the source for Export and the
+    remote-write target for Import. From the compose network use <code>http://prometheus:9090</code>;
+    for a Prometheus on the docker host use <code>http://host.docker.internal:9090</code>.</figcaption>
+  </figure>
+
+  <p>To <b>import</b> a clip back into the stack's Prometheus, it must accept remote-write. That is
+  an opt-in, set in <code>deploy/.env</code>:</p>
+<pre><code>PROM_REMOTE_WRITE=<span class="s">1</span>     <span class="c"># turns on --web.enable-remote-write-receiver</span>
+PROM_OOO_WINDOW=<span class="s">7d</span>      <span class="c"># out-of-order window; old samples land instead of being dropped</span></code></pre>
+<pre><code>docker compose up <span class="k">-d</span>    <span class="c"># re-create prometheus with the receiver enabled</span></code></pre>
+  <div class="warn"><b>Without <code>PROM_OOO_WINDOW</code></b>, any sample older than the ~2&nbsp;h head
+  block is discarded while the write still returns <code>200&nbsp;OK</code> — the import looks
+  successful but lands nothing. See <a href="#prom-clip">prom-clip in depth</a>.</div>
+</section>
+
+<section id="env-reference">
+  <h1>.env reference</h1>
+  <p>All knobs read by <code>deploy/docker-compose.yml</code>. Copy <code>deploy/.env.example</code>
+  to <code>deploy/.env</code> and edit. Everything is optional except the per-scenario essentials.</p>
+  <table>
+    <tr><th>Variable</th><th>Profile</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>EXPORTER_TARGETS</code></td><td>default</td><td><code>lab=host.docker.internal:9876</code></td><td>Comma list <code>name=host:port</code>. Each <code>name</code> becomes the <code>group</code> label.</td></tr>
+    <tr><td><code>SSV_URL</code></td><td>full</td><td><i>required</i></td><td>SSV REST base URL, e.g. <code>https://10.0.0.1</code>.</td></tr>
+    <tr><td><code>SSV_USER</code></td><td>full</td><td><i>required</i></td><td>SSV username.</td></tr>
+    <tr><td><code>SSV_PASS</code></td><td>full</td><td><i>required</i></td><td>SSV password.</td></tr>
+    <tr><td><code>SSV_GROUP</code></td><td>full</td><td><code>full</code></td><td>Label applied to the in-stack exporter's metrics.</td></tr>
+    <tr><td><code>SSV_BASES</code></td><td>full</td><td><i>empty</i></td><td>Cold-start backup IPs (comma list) seeded before the first scrape.</td></tr>
+    <tr><td><code>SSV_BACKUP_CIDRS</code></td><td>full</td><td>primary's <code>/24</code></td><td>CIDR allowlist for discovered backups. <code>0.0.0.0/0</code> disables filtering.</td></tr>
+    <tr><td><code>EXPORTER_IMAGE</code></td><td>full</td><td><code>ghcr.io/lblanc/ssv-prom-exporter:latest</code></td><td>Image to run when not using <code>--build</code>.</td></tr>
+    <tr><td><code>GF_ADMIN_PASSWORD</code></td><td>always</td><td><code>admin</code></td><td>Grafana admin password (editing only; viewing is anonymous).</td></tr>
+    <tr><td><code>PROM_REMOTE_WRITE</code></td><td>always</td><td><i>off</i></td><td>Set to <code>1</code> to accept inbound remote-write (backfill from prom-clip).</td></tr>
+    <tr><td><code>PROM_OOO_WINDOW</code></td><td>always</td><td><code>7d</code></td><td>Out-of-order storage window; required for backfill to land.</td></tr>
+    <tr><td><code>PROM_CLIP_IMAGE</code></td><td>clip</td><td><code>ghcr.io/lblanc/prom-clip:latest</code></td><td>Image for the prom-clip service when not using <code>--build</code>.</td></tr>
+  </table>
+</section>
+
+<section id="exporter-config">
+  <h1>Exporter settings (env vars &amp; flags)</h1>
+  <p>Inside the stack (<code>--profile full</code>) the exporter is configured through the
+  <code>SSV_*</code> env vars above. Run standalone (docker run, systemd, Windows service) the same
+  settings are available as env vars and/or CLI flags, and can also come from a YAML config.</p>
+  <table>
+    <tr><th>Flag</th><th>Env var</th><th>Description</th></tr>
+    <tr><td><code>-config</code></td><td><code>SSV_CONFIG</code></td><td>Path to a YAML config file (<code>config.example.yaml</code> has the full schema).</td></tr>
+    <tr><td><code>-url</code></td><td><code>SSV_URL</code></td><td>SSV REST base URL.</td></tr>
+    <tr><td><code>-user</code></td><td><code>SSV_USER</code></td><td>SSV username.</td></tr>
+    <tr><td><code>-pass</code></td><td><code>SSV_PASS</code></td><td>SSV password.</td></tr>
+    <tr><td><code>-host</code></td><td><code>SSV_HOST</code></td><td><code>ServerHost</code> header; defaults to the host of <code>-url</code>.</td></tr>
+    <tr><td><code>-insecure</code></td><td>—</td><td>Skip TLS verification (default <code>true</code>; SSV ships self-signed certs).</td></tr>
+    <tr><td><code>-bases</code></td><td><code>SSV_BASES</code></td><td>Comma-separated backup IPs seeded before the first scrape.</td></tr>
+    <tr><td><code>-backup-cidrs</code></td><td><code>SSV_BACKUP_CIDRS</code></td><td>CIDR allowlist for discovered backups. Default: primary's <code>/24</code>.</td></tr>
+    <tr><td><code>-retries</code></td><td>—</td><td>Retries after every endpoint has failed transiently once (default <code>2</code>).</td></tr>
+    <tr><td><code>-retry-delay</code></td><td>—</td><td>Initial backoff (default <code>200ms</code>); doubles, capped 2&nbsp;s, ±50% jitter.</td></tr>
+    <tr><td><code>-perf-workers</code></td><td>—</td><td>Concurrent <code>/performance/{id}</code> calls per scrape (default <code>8</code>).</td></tr>
+    <tr><td><code>-listen</code></td><td>—</td><td>Exporter HTTP listen address, e.g. <code>:9876</code>.</td></tr>
+    <tr><td><code>-ping</code></td><td>—</td><td>Probe <code>/serverGroups</code>, print the response, exit.</td></tr>
+    <tr><td><code>-install</code> / <code>-uninstall</code></td><td>—</td><td>Register / remove the Windows service and exit.</td></tr>
+    <tr><td><code>-version</code></td><td>—</td><td>Print version and exit.</td></tr>
+  </table>
+  <p>Precedence when several sources set the same value:</p>
+<pre><code>explicit flag  &gt;  env var (flag default)  &gt;  YAML  &gt;  built-in default</code></pre>
+  <p>Unknown YAML keys are rejected at load time, so a typo can't silently leave a setting at its default.</p>
+</section>
+
+<section id="cheatsheet">
+  <h1>Command cheat-sheet</h1>
+  <p>All commands run from <code>deploy/</code>.</p>
+<pre><code><span class="c"># Bring up / tear down</span>
+docker compose up <span class="k">-d</span>                                  <span class="c"># Scenario A</span>
+docker compose <span class="k">--profile</span> <span class="s">full</span> up <span class="k">-d</span> <span class="k">--build</span>           <span class="c"># Scenario B</span>
+docker compose <span class="k">--profile</span> <span class="s">full</span> <span class="k">--profile</span> <span class="s">clip</span> up <span class="k">-d</span> <span class="k">--build</span>  <span class="c"># B + C</span>
+docker compose down                                   <span class="c"># stop, keep data</span>
+docker compose down <span class="k">-v</span>                                <span class="c"># stop AND wipe TSDB + Grafana</span>
+
+<span class="c"># Status &amp; logs</span>
+docker compose ps
+docker compose logs <span class="k">-f</span> prometheus
+docker compose logs <span class="k">-f</span> exporter         <span class="c"># only with --profile full</span>
+
+<span class="c"># Apply an .env change to one service</span>
+docker compose up <span class="k">-d</span> <span class="k">--force-recreate</span> prometheus
+
+<span class="c"># Rebuild only the exporter image after a code change</span>
+docker compose <span class="k">--profile</span> <span class="s">full</span> build exporter
+docker compose <span class="k">--profile</span> <span class="s">full</span> up <span class="k">-d</span> exporter
+
+<span class="c"># Reload Prometheus config without a restart (lifecycle API is enabled)</span>
+curl <span class="k">-X</span> POST http://localhost:9090/-/reload</code></pre>
+</section>
+
+<section id="dashboards">
+  <h1>The Grafana dashboards</h1>
+  <p>Grafana is provisioned with a datasource and <b>five dashboards</b> in the <b>SSV</b> folder,
+  all cross-linked through an "SSV" dropdown that preserves the time range and selected filters as
+  you move between them. Every panel is filtered by a <b>Group</b> template variable, so several
+  SANsymphony groups can sit side by side.</p>
+
+  <h3>Overview</h3>
+  <p>Global health: scrape status, active alerts (level / server / age), server states, capacity
+  rollups, total IOPS &amp; latency, top-N noisy vdisks, active monitors.</p>
+  <figure><img src="01-overview.png" alt="Overview dashboard"><figcaption>SSV — Overview, live PSP&nbsp;20 lab data.</figcaption></figure>
+
+  <h3>Servers</h3>
+  <p>Per-server (repeated row): state, cache, IOPS &amp; throughput, and IOPS &amp; latency broken
+  down by IO pipeline class (front-end target / mirror target / back-end / pool / target). A
+  "Server versions" table reads product / OS / build from <code>ssv_server_info</code>.</p>
+  <figure><img src="02-servers.png" alt="Servers dashboard"><figcaption>SSV — Servers.</figcaption></figure>
+
+  <h3>Storage</h3>
+  <p>Per-pool (status, capacity, IOPS, latency) with a collapsible Physical-disks subsection
+  (table + per-disk IOPS / throughput / latency / queue), and per-vdisk (status, cache hit ratio,
+  IOPS, throughput, latency).</p>
+  <figure><img src="03-storage.png" alt="Storage dashboard"><figcaption>SSV — Storage.</figcaption></figure>
+
+  <h3>Hosts</h3>
+  <p>SAN-client inventory + per-host IOPS &amp; bandwidth, peak IO size, provisioned capacity, plus
+  a Connections subsection for the host's ports.</p>
+  <figure><img src="04-hosts.png" alt="Hosts dashboard"><figcaption>SSV — Hosts.</figcaption></figure>
+
+  <h3>Ports</h3>
+  <p>Per-port (table + IOPS + bandwidth + target IO latency + pending commands) with a collapsible
+  Errors row (link-layer counters).</p>
+  <figure><img src="05-ports.png" alt="Ports dashboard"><figcaption>SSV — Ports.</figcaption></figure>
+
+  <div class="note"><b>Editing.</b> Anonymous access is read-only Viewer. Log in as <code>admin</code>
+  with <code>GF_ADMIN_PASSWORD</code> to edit.</div>
+</section>
+
+<section id="metrics">
+  <h1>Exposed metrics</h1>
+  <p>Non-exhaustive — see <code>/metrics</code> for the live list.</p>
+  <h3>Scrape framing</h3>
+  <ul>
+    <li><code>ssv_up{collector="inventory"|"health"|"performance"}</code> — 1 if the last scrape of that tier succeeded.</li>
+    <li><code>ssv_scrape_duration_seconds{collector="..."}</code> — last scrape duration, per tier.</li>
+  </ul>
+  <h3>Inventory</h3>
+  <p><code>ssv_server_group_*</code>, <code>ssv_server_*</code> (with an <code>info</code> series carrying
+  <code>host_name</code> / <code>product_name</code> / <code>product_version</code> / <code>product_build</code> /
+  <code>os_version</code>), <code>ssv_pool_*</code>, <code>ssv_virtual_disk_*</code>, <code>ssv_host_*</code>,
+  <code>ssv_port_*</code>, and <code>ssv_physical_disk_*</code> plus a
+  <code>ssv_physical_disk_pool{disk_id, pool_id, pool, tier}</code> relation gauge (the
+  <code>pool</code>/<code>tier</code> labels are also stamped on every disk metric, so PromQL filters need no joins).</p>
+  <h3>Health</h3>
+  <p><code>ssv_monitor_state{...}</code>, <code>ssv_alerts_total</code>,
+  <code>ssv_alert_info{alert_id, machine, level, message, ...}</code> (gauge=1 per alert),
+  <code>ssv_alert_age_seconds{alert_id}</code>.</p>
+  <h3>Performance</h3>
+  <p>Per object: <code>read_bytes_total</code>, <code>write_bytes_total</code>, <code>read_ops_total</code>,
+  <code>write_ops_total</code>, plus per-object extras (server cache hits/misses + cache size/free;
+  pool capacity / used / available / reserved / reclamation / oversubscribed; vdisk cache counters;
+  host provisioned + peak IO sizes; port per-direction split + link-layer error counters;
+  physical-disk queue + pending commands).</p>
+  <p>SSV exposes <code>*Time</code> counters in milliseconds; the exporter multiplies by
+  <code>1e-3</code> so every latency metric is in seconds. The server tier is split by IO pipeline class:</p>
+<pre><code><span class="c"># average IO latency per class</span>
+rate(ssv_server_class_io_time_seconds_total[$__rate_interval])
+  /
+rate(ssv_server_class_io_operations_total[$__rate_interval])</code></pre>
+</section>
+
+<section id="prom-clip">
+  <h1>prom-clip in depth</h1>
+  <p><code>prom-clip</code> ships in this repo as a second binary. It <b>clips a time window from one
+  Prometheus and replays it into another</b> — to hand a dataset to support, seed a demo, or carry a
+  before/after comparison between sites that aren't network-connected. Wire format: gzipped
+  OpenMetrics (<code>.txt.gz</code>); replay uses the remote-write protocol.</p>
+
+  <h3>Export</h3>
+  <p>Pick a time window and a step, optionally filter metric names with a regex
+  (e.g. <code>^ssv_.*</code>), and write a gzipped OpenMetrics file. Optionally push it to a
+  configured S3 target on completion.</p>
+  <figure><img src="clip-02-export.png" alt="prom-clip Export page"><figcaption>Export — reading
+  from the connected Prometheus, with a <code>ssv_.*</code> metric filter and a 30&nbsp;s step.</figcaption></figure>
+
+  <h3>Import</h3>
+  <p>Stream a previously exported <code>.txt.gz</code> back and replay it into the target Prometheus
+  via remote-write.</p>
+  <figure><img src="clip-03-import.png" alt="prom-clip Import page"><figcaption>Import — replays a
+  clip into the target Prometheus over the remote-write protocol.</figcaption></figure>
+
+  <h3>Status</h3>
+  <p>The last source/target connection and the recent run history.</p>
+  <figure><img src="clip-04-status.png" alt="prom-clip Status page"><figcaption>Status — run history
+  and the resolved runtime mode (ephemeral vs persistent).</figcaption></figure>
+
+  <h3>One-shot CLI</h3>
+  <p>The same binary runs headless, with no server, port or state directory:</p>
+<pre><code>prom-clip export <span class="k">-src</span> http://prom-source:9090 \
+                 <span class="k">-from</span> <span class="s">-1h</span> <span class="k">-to</span> <span class="s">now</span> <span class="k">-step</span> <span class="s">30s</span> \
+                 <span class="k">-metric</span> <span class="s">'^ssv_.*'</span> \
+                 <span class="k">-out</span> snapshot.txt.gz
+prom-clip import <span class="k">-dst</span> http://prom-target:9090 \
+                 <span class="k">-in</span> snapshot.txt.gz</code></pre>
+  <p><code>-from</code>/<code>-to</code> accept RFC3339, a Go duration (<code>-1h</code> = "1 hour ago"),
+  or <code>now</code>. Pass <code>-state-dir &lt;path&gt;</code> to opt into persistent mode (last
+  connection remembered, exports kept, rotation via <code>-keep-exports N</code>).</p>
+
+  <div class="warn"><b>Import requires</b> the target Prometheus to run with
+  <code>--web.enable-remote-write-receiver</code> <b>and</b>
+  <code>storage.tsdb.out_of_order_time_window</code> set wide enough to cover the imported window.
+  The bundled stack exposes both behind <code>PROM_REMOTE_WRITE</code> (see
+  <a href="#scenario-c">Scenario&nbsp;C</a>).</div>
+</section>
+
+<section id="without-compose">
+  <h1>Running the exporter without compose</h1>
+  <p>The compose <code>exporter</code> service is convenient, but production deployments usually run
+  the exporter as a long-lived service on each SAN host.</p>
+
+  <h3>Plain docker run</h3>
+<pre><code>docker run <span class="k">--rm</span> <span class="k">-p</span> 9876:9876 \
+    <span class="k">-e</span> SSV_URL=<span class="s">https://10.0.0.1</span> \
+    <span class="k">-e</span> SSV_USER=<span class="s">administrator</span> \
+    <span class="k">-e</span> SSV_PASS=<span class="s">'ChangeMe!'</span> \
+    ghcr.io/lblanc/ssv-prom-exporter:latest</code></pre>
+  <p>Multi-arch images (<code>linux/amd64</code> + <code>linux/arm64</code>) are published on every
+  release as <code>vX.Y.Z</code>, <code>X.Y</code> and <code>latest</code>. ~34&nbsp;MB, nonroot uid
+  65532, <code>tini</code> for clean SIGTERM, <code>HEALTHCHECK</code> on <code>/metrics</code>.</p>
+
+  <h3>Linux (systemd)</h3>
+<pre><code>tar xzf ssv-prom-exporter-vX.Y.Z-linux-amd64.tar.gz
 cd     ssv-prom-exporter-vX.Y.Z-linux-amd64
 ./install-linux.sh
 $EDITOR /etc/ssv-prom-exporter/config.yaml   <span class="c"># set url / user / pass</span>
-systemctl enable --now ssv-prom-exporter</pre>
+systemctl enable <span class="k">--now</span> ssv-prom-exporter
+journalctl <span class="k">--unit</span> ssv-prom-exporter <span class="k">-f</span></code></pre>
+  <p>The unit runs as a <code>DynamicUser</code> with <code>ProtectSystem=strict</code>,
+  <code>NoNewPrivileges</code>, a <code>SystemCallFilter</code> and tight memory limits.</p>
 
-    <p>The installer places:</p>
-    <ul>
-      <li><code>/usr/local/bin/ssv-prom-exporter</code> — the static binary.</li>
-      <li><code>/etc/systemd/system/ssv-prom-exporter.service</code> — the systemd unit.</li>
-      <li><code>/etc/ssv-prom-exporter/config.yaml</code> — created from
-          <code>config.example.yaml</code> on the first install,
-          <strong>never overwritten on upgrade</strong>.</li>
-    </ul>
-
-    <div class="note">
-      <span class="lbl">Sandboxed by default.</span>
-      The unit runs as a <code>DynamicUser</code> (no separate
-      <code>useradd</code>) with <code>ProtectSystem=strict</code>,
-      <code>NoNewPrivileges</code>, a <code>SystemCallFilter</code>,
-      restricted address families (AF_INET / AF_INET6 / AF_UNIX
-      only) and memory / task limits.
-    </div>
-
-    <p>Output goes to <code>journald</code>:</p>
-<pre>journalctl --unit ssv-prom-exporter -f
-systemctl status ssv-prom-exporter</pre>
-
-    <p>To upgrade: extract the new tarball, re-run
-       <code>./install-linux.sh</code>. The config file is preserved;
-       the unit is re-installed and the service restarted if it was
-       already enabled.</p>
-  </section>
-
-  <!-- ============== Docker ============== -->
-  <section id="docker">
-    <h2>Run with Docker</h2>
-    <p>
-      Pre-built multi-arch images (<code>linux/amd64</code> +
-      <code>linux/arm64</code>) are published on GHCR on every
-      release. The most direct way to bring up an exporter:
-    </p>
-<pre>docker run --rm -p 9876:9876 \
-    -e <span class="k">SSV_URL</span>=https://10.0.0.1 \
-    -e <span class="k">SSV_USER</span>=administrator \
-    -e <span class="k">SSV_PASS</span>=<span class="s">'ChangeMe!'</span> \
-    ghcr.io/lblanc/ssv-prom-exporter:latest</pre>
-
-    <p>Image properties:</p>
-    <ul>
-      <li>Built on <code>alpine:3</code>, ~34 MB final.</li>
-      <li>Runs as nonroot uid 65532.</li>
-      <li>Embeds <code>tini</code> so <code>docker stop</code>
-          (SIGTERM) is forwarded cleanly to the Go runtime —
-          graceful shutdown.</li>
-      <li>Ships a <code>HEALTHCHECK</code> against
-          <code>http://127.0.0.1:9876/metrics</code> (30 s interval,
-          30 s start grace).</li>
-    </ul>
-
-    <p>Tags published: <code>vX.Y.Z</code>, <code>X.Y</code>, <code>latest</code>.</p>
-
-    <h3>Mount a YAML config instead of using env vars</h3>
-<pre>docker run --rm -p 9876:9876 \
-    -v /etc/ssv/config.yaml:/etc/ssv-prom-exporter/config.yaml:ro \
-    ghcr.io/lblanc/ssv-prom-exporter:latest \
-    -config /etc/ssv-prom-exporter/config.yaml</pre>
-
-    <div class="tip">
-      <span class="lbl">Tip.</span>
-      Prefer mounted YAML over <code>-e SSV_PASS=...</code> for
-      long-running containers — env vars show up in
-      <code>docker inspect</code> output and in any orchestrator's
-      pod spec.
-    </div>
-
-    <p>
-      For a complete demo (exporter + Prometheus + Grafana with the
-      five SSV dashboards), see
-      <a href="#full-stack">Full-stack compose</a> below.
-    </p>
-  </section>
-
-  <!-- ============== Configure ============== -->
-  <section id="configure">
-    <h2>Configure</h2>
-    <p>
-      <code>config.yaml</code> is the single source of truth. See
-      <code>config.example.yaml</code> shipped with the MSI for the
-      full schema with inline comments. The most common knobs:
-    </p>
-<pre><span class="k">url</span>:       https://10.0.0.1            <span class="c"># SSV REST base URL</span>
-<span class="k">user</span>:      administrator
-<span class="k">pass</span>:      ChangeMe!
-<span class="k">listen</span>:    <span class="s">":9876"</span>                     <span class="c"># HTTP listen for /metrics</span>
-<span class="k">insecure</span>:  true                        <span class="c"># SSV ships self-signed certs</span>
-
-<span class="c"># Optional — backup management nodes seeded before the first scrape.</span>
-<span class="c"># After that, the exporter auto-discovers them from /servers.</span>
-<span class="k">bases</span>:         <span class="s">"10.0.0.2,10.0.0.3"</span>
-<span class="k">backup_cidrs</span>:  <span class="s">"10.0.0.0/24"</span>            <span class="c"># default = primary's /24</span>
-
-<span class="c"># Optional — failure handling.</span>
-<span class="k">retries</span>:       2
-<span class="k">retry_delay</span>:   <span class="s">"200ms"</span>
-
-<span class="c"># Optional — performance collector concurrency.</span>
-<span class="k">perf_workers</span>:  8</pre>
-
-    <h3>Precedence</h3>
-    <p>Values fall through this order:</p>
-    <pre>explicit flag  &gt;  env var (acts as the flag default)
-               &gt;  YAML
-               &gt;  built-in default</pre>
-    <div class="tip">
-      <span class="lbl">Tip.</span>
-      Unknown YAML keys are rejected at load time, so a typo fails
-      fast rather than silently leaving a setting at its default.
-    </div>
-  </section>
-
-  <!-- ============== Smoke-test ============== -->
-  <section id="smoke-test">
-    <h2>Smoke-test</h2>
-    <p>From the target host, with the exporter running:</p>
-<pre>curl http://127.0.0.1:9876/metrics | findstr ssv_up</pre>
-    <p>You should see three lines, one per collector tier:</p>
-<pre>ssv_up{collector=<span class="s">"inventory"</span>}   1
-ssv_up{collector=<span class="s">"health"</span>}      1
-ssv_up{collector=<span class="s">"performance"</span>} 1</pre>
-    <p>
-      A zero on any tier means that collector's last scrape failed.
-      Look at
-      <code>ssv_scrape_duration_seconds{collector="..."}</code>
-      and the Event Log for the reason.
-    </p>
-    <h3>One-shot REST probe</h3>
-    <p>To probe the REST API without starting the HTTP server:</p>
-<pre>ssv-prom-exporter.exe -ping -url https://10.0.0.1 ^
-                      -user administrator -pass S3cret!</pre>
-    <p>
-      <code>-ping</code> prints the raw <code>/serverGroups</code>
-      JSON and exits — useful during network / credentials triage.
-    </p>
-  </section>
-
-  <!-- ============== Run & Observe ============== -->
-  <section id="run-observe">
-    <h2>Run &amp; Observe</h2>
-    <p>This chapter covers how Prometheus scrapes the exporter, the
-       five Grafana dashboards that ship with it, and a cheatsheet of
-       the metrics surface.</p>
-    <ul class="link-list">
-      <li><a class="lnk" href="#prometheus">Wire to Prometheus</a> — scrape job and recommended interval.</li>
-      <li><a class="lnk" href="#dashboards">Grafana dashboards</a> — Overview, Servers, Storage, Hosts, Ports.</li>
-      <li><a class="lnk" href="#metrics">Metrics cheatsheet</a> — the names that matter, by tier.</li>
-    </ul>
-  </section>
-
-  <!-- ============== Prometheus ============== -->
-  <section id="prometheus">
-    <h2>Wire to Prometheus</h2>
-    <p>
-      Add the exporter as a scrape target. The recommended label is
-      <code>group</code>, matching the SAN group name — that label is
-      what the bundled Grafana dashboards filter on.
-    </p>
-<pre><span class="k">scrape_configs</span>:
-  - <span class="k">job_name</span>: ssv
-    <span class="k">static_configs</span>:
-      - <span class="k">targets</span>: [<span class="s">"sansymphony-host-1:9876"</span>]
-        <span class="k">labels</span>:
-          <span class="k">group</span>: <span class="s">"prod"</span>
-      - <span class="k">targets</span>: [<span class="s">"sansymphony-host-2:9876"</span>]
-        <span class="k">labels</span>:
-          <span class="k">group</span>: <span class="s">"lab"</span></pre>
-
-    <div class="tip">
-      <span class="lbl">15 s is the sweet spot.</span>
-      Faster than SSV's 30 s REST cache buys nothing
-      (<code>RequestExpirationTime</code> on the mgmt server's
-      <code>Web.config</code>). Slower than 30 s makes counter
-      <code>rate()</code> ranges noisy.
-    </div>
-  </section>
-
-  <!-- ============== Full-stack compose ============== -->
-  <section id="full-stack">
-    <h2>Full-stack docker compose</h2>
-    <p>
-      A docker-compose stack ships under <code>deploy/</code> in the
-      repository: Prometheus 3 + Grafana 12 with the five
-      dashboards pre-provisioned, all cross-linked through an "SSV"
-      dropdown that preserves the time range and selected filters
-      when navigating between them. Two deployment modes are
-      supported through compose profiles.
-    </p>
-
-    <h3>External exporters (default profile)</h3>
-    <p>
-      Prometheus + Grafana run from compose; the exporter runs
-      elsewhere (typically on each SAN host).
-    </p>
-<pre>cd deploy
-cp .env.example .env
-$EDITOR .env          <span class="c"># set EXPORTER_TARGETS=name=host:port,...</span>
-docker compose up -d</pre>
-    <p>
-      <code>EXPORTER_TARGETS=lab=10.0.0.10:9876,prod=10.1.0.10:9876</code>
-      declares two targets; each name becomes the <code>group</code>
-      Prometheus label, used by every dashboard's <strong>Group</strong>
-      template variable.
-    </p>
-
-    <h3>Full stack with the exporter (<code>--profile full</code>)</h3>
-    <p>
-      The exporter <strong>also</strong> runs as a service in the
-      compose stack. Useful for demos and for sites that prefer to run
-      everything containerized. Single SSV group, single
-      <code>.env</code>, single command:
-    </p>
-<pre>cd deploy
-cp .env.example .env
-<span class="c"># Set SSV_URL / SSV_USER / SSV_PASS / SSV_GROUP in .env.</span>
-<span class="c"># Leave EXPORTER_TARGETS commented out.</span>
-docker compose --profile full up -d --build</pre>
-    <p>
-      Prometheus auto-discovers the in-stack exporter (scraping
-      <code>exporter:9876</code> on the compose network) and stamps
-      the <code>group</code> label from <code>SSV_GROUP</code>
-      (default: <code>full</code>). The exporter's
-      <code>/metrics</code> is not published on the host by default —
-      uncomment the <code>ports:</code> block in
-      <code>deploy/docker-compose.yml</code> if you want to curl it
-      locally.
-    </p>
-
-    <p class="note">
-      The stack's Prometheus is pull-only by default. To also accept
-      inbound backfill from <a href="#prom-clip"><code>prom-clip</code></a>,
-      set <code>PROM_REMOTE_WRITE=1</code> in <code>.env</code>
-      (optionally with <code>PROM_OOO_WINDOW=7d</code>) before bringing
-      it up. That toggles both
-      <code>--web.enable-remote-write-receiver</code> and a matching
-      <code>storage.tsdb.out_of_order_time_window</code>, without
-      which Prometheus silently drops any sample older than the current
-      head block (~2 h) while still returning HTTP 200 on the write.
-    </p>
-
-    <h3>Endpoints</h3>
-    <ul>
-      <li>Grafana — <a href="http://localhost:3000">http://localhost:3000</a>
-          (anonymous Viewer enabled by default;
-          <code>admin</code> / <code>GF_ADMIN_PASSWORD</code> to edit).</li>
-      <li>Prometheus — <a href="http://localhost:9090">http://localhost:9090</a>.</li>
-    </ul>
-
-    <p>
-      Stop the stack with <code>docker compose down</code>; add
-      <code>-v</code> to also wipe the TSDB and Grafana volumes.
-    </p>
-  </section>
-
-  <!-- ============== Dashboards ============== -->
-  <section id="dashboards">
-    <h2>Grafana dashboards</h2>
-    <p>
-      Five dashboards ship pre-provisioned in the <strong>SSV</strong>
-      folder, cross-linked through an "SSV" dropdown that preserves
-      time range and selected filters as you navigate.
-    </p>
-
-    <table>
-      <thead>
-        <tr><th>Dashboard</th><th>Shows</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><strong>Overview</strong></td><td>Scrape health, alert details, server states, capacity, IOPS &amp; latency, top-N noisy vdisks.</td></tr>
-        <tr><td><strong>Servers</strong></td><td>Per-server state, cache, IOPS &amp; throughput, latency by IO pipeline class.</td></tr>
-        <tr><td><strong>Storage</strong></td><td>Per-pool status &amp; capacity, physical disks (IOPS / throughput / latency / queue), per-vdisk.</td></tr>
-        <tr><td><strong>Hosts</strong></td><td>SAN-client inventory, per-host IOPS &amp; bandwidth, peak IO size, provisioned capacity, host ports.</td></tr>
-        <tr><td><strong>Ports</strong></td><td>Per-port IOPS / bandwidth, target IO latency, pending commands, link-layer errors.</td></tr>
-      </tbody>
-    </table>
-
-    <h3>Overview</h3>
-    <figure>
-      <img src="01-overview.png" alt="SSV Overview dashboard">
-      <figcaption>Scrape health, alert details, server status, capacity rollups, IOPS &amp; latency.</figcaption>
-    </figure>
-
-    <h3>Servers</h3>
-    <figure>
-      <img src="02-servers.png" alt="SSV Servers dashboard">
-      <figcaption>Per-server state, cache, IOPS &amp; throughput, latency split by IO pipeline class.</figcaption>
-    </figure>
-
-    <h3>Storage</h3>
-    <figure>
-      <img src="03-storage.png" alt="SSV Storage dashboard">
-      <figcaption>Per-pool status, physical disks, per-vdisk panels (IOPS / throughput / latency / cache).</figcaption>
-    </figure>
-
-    <h3>Hosts</h3>
-    <figure>
-      <img src="04-hosts.png" alt="SSV Hosts dashboard">
-      <figcaption>SAN-client inventory, per-host IOPS &amp; bandwidth, peak IO size, provisioning.</figcaption>
-    </figure>
-
-    <h3>Ports</h3>
-    <figure>
-      <img src="05-ports.png" alt="SSV Ports dashboard">
-      <figcaption>Per-port IOPS / bandwidth, target IO latency, pending commands, link-layer errors.</figcaption>
-    </figure>
-  </section>
-
-  <!-- ============== Metrics ============== -->
-  <section id="metrics">
-    <h2>Metrics cheatsheet</h2>
-    <p>Non-exhaustive. Open <code>/metrics</code> on a running instance for the live list.</p>
-
-    <h3>Scrape framing</h3>
-    <ul>
-      <li><code>ssv_up{collector}</code> — 1 if the last tier scrape succeeded.</li>
-      <li><code>ssv_scrape_duration_seconds{collector}</code> — last scrape duration.</li>
-    </ul>
-
-    <h3>Inventory</h3>
-    <ul>
-      <li><code>ssv_server_*</code> (state, cache, memory, <code>info{host_name, product_version, ...}</code>)</li>
-      <li><code>ssv_server_group_*</code> (state, used/max bytes, <code>license_expires_seconds</code>)</li>
-      <li><code>ssv_pool_*</code> (status, type, <code>chunk_size_bytes</code>)</li>
-      <li><code>ssv_virtual_disk_*</code> (status, size_bytes, type, offline)</li>
-      <li><code>ssv_host_*</code> (state, connection_state, <code>info{host_name, description, version}</code>)</li>
-      <li><code>ssv_port_*</code> (connected, role_capability, <code>info{host, port_name, alias, ...}</code>)</li>
-      <li><code>ssv_physical_disk_*</code> (status, size_bytes, free_bytes, <code>info{pool, tier, ...}</code>)</li>
-    </ul>
-
-    <h3>Health</h3>
-    <ul>
-      <li><code>ssv_monitor_state{monitor_id, template, target_id, caption}</code></li>
-      <li><code>ssv_alerts_total</code> — count</li>
-      <li><code>ssv_alert_info{alert_id, machine, level, caller, message, ...}</code> — gauge=1 per alert</li>
-      <li><code>ssv_alert_age_seconds{alert_id}</code></li>
-    </ul>
-
-    <h3>Performance — bytes &amp; ops (counters)</h3>
-    <p>
-      Same family per object: <code>read_bytes_total</code>,
-      <code>write_bytes_total</code>, <code>read_ops_total</code>,
-      <code>write_ops_total</code>, plus object-specific extras
-      (server cache, pool capacity, port pending/errors, physical
-      disk queue/pending, host provisioned and peak IO size).
-    </p>
-
-    <h3>Performance — latency (in seconds)</h3>
-    <div class="note">
-      <span class="lbl">Note.</span>
-      The exporter scales SANsymphony's millisecond timers to
-      seconds (Prometheus convention).
-    </div>
-    <ul>
-      <li><code>ssv_server_class_io_{operations_total, time_seconds_total, max_time_seconds}{class}</code>
-          — <code>class ∈ {front_end_target, mirror_target, physical_disk, pool, target}</code></li>
-      <li><code>ssv_pool_{read,write,io}_time_seconds_total</code>,
-          <code>ssv_pool_{read,write,io}_max_time_seconds</code></li>
-      <li><code>ssv_virtual_disk_io_time_seconds_total</code>,
-          <code>ssv_virtual_disk_io_max_time_seconds</code></li>
-      <li><code>ssv_port_target_io_time_seconds_total</code>,
-          <code>ssv_port_target_io_max_time_seconds</code></li>
-      <li><code>ssv_physical_disk_{read,write,io}_time_seconds_total</code>,
-          <code>ssv_physical_disk_{read,write,io}_max_time_seconds</code></li>
-    </ul>
-
-    <h3>Average IO latency, in PromQL</h3>
-<pre>rate(ssv_server_class_io_time_seconds_total[$__rate_interval])
-  /
-rate(ssv_server_class_io_operations_total[$__rate_interval])</pre>
-  </section>
-
-  <!-- ============== Operate ============== -->
-  <!-- ============== Companion: prom-clip ============== -->
-  <section id="prom-clip">
-    <h2>Companion tool: prom-clip</h2>
-
-    <p>
-      A second binary, <code>prom-clip</code>, ships in this repo to
-      <strong>clip a time window from one Prometheus and replay it
-      into another</strong>. The wire format is gzipped OpenMetrics
-      (<code>.txt.gz</code>); the replay path uses Prometheus's
-      remote-write protocol.
-    </p>
-
-    <p>Typical uses:</p>
-    <ul>
-      <li>snapshot a customer site that runs the exporter, mail or share
-          the <code>.txt.gz</code>, replay it into a local lab for triage;</li>
-      <li>ship a demo dataset alongside the dashboards;</li>
-      <li>carry a "before / after" comparison between sites that aren't
-          network-connected.</li>
-    </ul>
-
-    <h3>Web UI (default)</h3>
-    <p>
-      Run <code>prom-clip</code> with no arguments. The UI listens on
-      <code>http://127.0.0.1:8088</code> (loopback only — no Windows
-      Firewall prompt) and opens in the default browser. The mode is
-      <strong>ephemeral by default</strong>: state lives in RAM, exports
-      stream directly to the browser's native Save-As dialog and are
-      removed server-side as soon as the download completes. Nothing
-      accumulates on the host that ran the tool.
-    </p>
-    <p>
-      Pass <code>-state-dir &lt;path&gt;</code> to opt into persistent
-      mode (last connection memorised across sessions, exports
-      accumulated under <code>&lt;state-dir&gt;/exports</code>, rotation
-      via <code>-keep-exports N</code>). When you let prom-clip pick the
-      default, that path follows the OS convention:
-      <code>%LOCALAPPDATA%\prom-clip</code> on Windows,
-      <code>~/.local/state/prom-clip</code> on Linux/macOS.
-    </p>
-
-    <h3>One-shot CLI (no server, no port, no state)</h3>
-<pre>prom-clip export -src http://prom-source:9090 \
-                 -from -1h -to now -step 30s \
-                 -metric '^ssv_.*' \
-                 -out snapshot.txt.gz
-
-prom-clip import -dst http://prom-target:9090 \
-                 -in snapshot.txt.gz</pre>
-    <p>
-      <code>-from</code> / <code>-to</code> accept RFC3339
-      (<code>2026-05-21T09:00:00Z</code>), a Go duration interpreted as
-      <code>now+d</code> (so <code>-1h</code> is "one hour ago"), or the
-      literal <code>now</code>. The <code>-step</code> defaults to
-      <code>15s</code>.
-    </p>
-
-    <h3>Receiver-side requirements</h3>
-    <p>The target Prometheus must run with both:</p>
-    <ul>
-      <li><code>--web.enable-remote-write-receiver</code> — otherwise
-          <code>/api/v1/write</code> returns HTTP 404;</li>
-      <li><code>storage.tsdb.out_of_order_time_window</code> wide enough
-          to cover the imported window — otherwise Prometheus returns
-          HTTP 200 on the write and <strong>silently</strong> drops
-          every sample older than ~2 h (the current head block).</li>
-    </ul>
-    <p>
-      The bundled <a href="#full-stack">full-stack compose</a> exposes
-      both behind the <code>PROM_REMOTE_WRITE</code> opt-in.
-    </p>
-
-    <h3>Optional S3 push</h3>
-    <p>
-      When the export finishes, the web UI can also push the
-      <code>.txt.gz</code> to an S3-compatible bucket configured under
-      <strong>Settings → S3 target</strong> (private 24 h presigned
-      URL, or a direct URL for a public bucket). Useful to share an
-      export as a single link rather than a file attachment.
-    </p>
-
-    <h3>Run from the compose stack</h3>
-    <p>
-      The <code>deploy/</code> stack ships a <code>clip</code> compose
-      profile that runs prom-clip alongside Prometheus + Grafana on the
-      same Docker network. The UI reaches the stack's Prometheus by
-      hostname (<code>http://prometheus:9090</code>):
-    </p>
-<pre>cd deploy
-docker compose --profile clip up -d --build
-<span class="c"># UI: http://127.0.0.1:8088 (loopback only)</span></pre>
-    <p>
-      Combine with <code>--profile full</code> to also run the
-      ssv-prom-exporter in the same stack:
-    </p>
-<pre>docker compose --profile full --profile clip up -d --build</pre>
-    <p>
-      State persists on a named Docker volume
-      <code>prom-clip-state</code> so the last Prometheus connection
-      survives <code>docker compose restart</code>. To wipe history:
-      <code>docker compose --profile clip down -v</code>.
-    </p>
-    <p>
-      A pre-built multi-arch image (linux/amd64 + linux/arm64) is
-      published on GHCR with every release at
-      <code>ghcr.io/lblanc/prom-clip:vX.Y.Z</code> /
-      <code>:latest</code>. To reach a Prometheus running on the Docker
-      host (not in the compose network), the container resolves
-      <code>http://host.docker.internal:9090</code>.
-    </p>
-  </section>
-
-  <section id="operate">
-    <h2>Operate</h2>
-    <p>This chapter covers high availability, troubleshooting,
-       day-2 operations (upgrade / rotate / uninstall), and
-       security notes.</p>
-    <ul class="link-list">
-      <li><a class="lnk" href="#high-availability">High availability</a> — failover between mgmt nodes.</li>
-      <li><a class="lnk" href="#troubleshoot">Troubleshooting</a> — common symptoms and their fix.</li>
-      <li><a class="lnk" href="#day2">Day-2 operations</a> — upgrade, rotate, uninstall.</li>
-      <li><a class="lnk" href="#security">Security notes</a> — ACLs, TLS, ImagePath.</li>
-    </ul>
-  </section>
-
-  <!-- ============== HA ============== -->
-  <section id="high-availability">
-    <h2>High availability</h2>
-    <p>
-      The exporter survives a single mgmt-node outage by failing over
-      to another node of the same SAN group.
-    </p>
-    <ul>
-      <li>After every successful inventory scrape, all IPs from
-          <code>/servers[].IpAddresses</code> are added to the backup
-          list, filtered by <code>backup_cidrs</code> (default = the
-          primary's <code>/24</code>).</li>
-      <li>On a transient failure (network error, timeout, HTTP 5xx)
-          the next endpoint is tried. HTTP 4xx is a config bug, not
-          an outage — it doesn't trigger failover.</li>
-      <li>The last-known-good endpoint is sticky for 5 min, so during
-          an outage only the first call pays the dial-timeout cost.
-          After 5 min the next call retries the primary, detecting
-          recovery.</li>
-      <li>If every endpoint fails transiently in one pass, the call
-          is retried with exponential backoff
-          (<code>retries</code>, <code>retry_delay</code>).</li>
-    </ul>
-  </section>
-
-  <!-- ============== Multi-group ============== -->
-  <section id="multi-group">
-    <h2>Multi-group SSV deployments</h2>
-    <p>
-      SSV mgmt servers federate state across peer groups: a single
-      <code>/serverGroups</code> REST call lists the local group plus
-      every peer it has been linked to, and <code>/servers</code>
-      blends local nodes with remote ones. The remote entries carry
-      compound IDs of the form
-      <code>&lt;remote-group-uuid&gt;:&lt;server-uuid&gt;</code> and
-      have most descriptive fields empty;
-      <code>/performance/{id}</code> is local-only.
-    </p>
-    <p>
-      The exporter therefore restricts per-server inventory and
-      performance fan-out to the <strong>local</strong> group,
-      identified by <code>OurGroup=true</code> in
-      <code>/serverGroups</code>:
-    </p>
-    <ul>
-      <li><code>ssv_server_group_*</code> still expose every visible
-          group, local or federated peer — alerting on a peer group
-          going unreachable still works.</li>
-      <li><code>ssv_server_*</code>,
-          <code>ssv_server_class_*</code> and the failover IP pool
-          are scoped to local nodes only.</li>
-      <li>The Grafana "Server" dropdown reads
-          <code>label_values(ssv_server_state{group=~"$group"},
-          server)</code>, so federated-peer nodes no longer surface
-          as empty rows on the Servers dashboard.</li>
-    </ul>
-    <p>
-      Practical consequence: <strong>run one exporter per SSV
-      group</strong>. The <code>EXPORTER_TARGETS</code> generator
-      already takes a comma-separated list of
-      <code>name=host:port</code> pairs; each entry becomes a
-      Prometheus <code>job_name</code> with its own
-      <code>group=&lt;name&gt;</code> label, which the dashboards
-      filter on end-to-end:
-    </p>
-<pre><code class="lang-bash">EXPORTER_TARGETS=HCI104=10.12.104.121:9876,HCI130=10.12.130.121:9876
-</code></pre>
-    <p>
-      Defensive fallback: if the API surprisingly returns no group
-      flagged <code>OurGroup=true</code>, the exporter keeps the
-      full server list rather than silently emptying the inventory.
-    </p>
-  </section>
-
-  <!-- ============== Troubleshoot ============== -->
-  <section id="troubleshoot">
-    <h2>Troubleshooting</h2>
-    <table>
-      <thead>
-        <tr><th>Symptom</th><th>Likely cause / fix</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>ssv_up{collector="inventory"} 0</code> at start</td><td>Wrong URL, wrong creds, or <code>ServerHost</code> header not matching the IP. Run <code>-ping</code> to see the JSON error.</td></tr>
-        <tr><td>All metrics are stale by N seconds</td><td>Normal — SSV's REST cache is 30 s. Don't scrape faster than that.</td></tr>
-        <tr><td><code>HTTP 400 ErrorCode 9</code></td><td><code>ServerHost</code> header missing. Should never happen with this exporter — file an issue.</td></tr>
-        <tr><td><code>HTTP 400</code> after switching <code>-host</code> to a name</td><td>Hostnames are rejected; <code>ServerHost</code> must be the <strong>IP</strong> the call is hitting.</td></tr>
-        <tr><td>TLS handshake fails</td><td><code>insecure: true</code> is the default. Flip to <code>false</code> only when you have a CA pinned (planned flag).</td></tr>
-        <tr><td><code>ssv_up</code> flips between 0 and 1 every scrape</td><td>Primary mgmt node is flapping. Check that <code>/servers[].IpAddresses</code> populates the backup list and that <code>backup_cidrs</code> covers them.</td></tr>
-        <tr><td>Counter <code>rate()</code> returns 0</td><td>The underlying SSV counter is in <code>NullCounterMap</code> for that object — not exposed by design.</td></tr>
-        <tr><td>Service won't start</td><td>Event Viewer → Windows Logs → Application, filter on <code>ssv-prom-exporter</code>. Most common cause: bad config path passed to <code>-install</code>.</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <!-- ============== Day-2 ============== -->
-  <section id="day2">
-    <h2>Day-2 operations</h2>
-    <h3>Upgrade</h3>
-    <p>Install the new MSI on top of the old one;
-       <code>C:\ProgramData\ssv-prom-exporter\config.yaml</code> is
-       preserved. Restart the service:</p>
-<pre>sc stop  ssv-prom-exporter
+  <h3>Windows (native service / MSI)</h3>
+  <p>From an <b>elevated</b> prompt:</p>
+<pre><code><span class="c">:: 1. Install the MSI</span>
 msiexec /i ssv-prom-exporter-X.Y.Z-x64.msi /qn
-sc start ssv-prom-exporter</pre>
 
-    <h3>Rotate credentials</h3>
-    <p>Edit <code>config.yaml</code>, then <code>sc stop</code> /
-       <code>sc start</code> the service. No need to re-run
-       <code>-install</code>.</p>
+<span class="c">:: 2. Place config.yaml in ProgramData and tighten ACLs</span>
+copy "C:\Program Files\ssv-prom-exporter\config.example.yaml" ^
+     "C:\ProgramData\ssv-prom-exporter\config.yaml"
+icacls "C:\ProgramData\ssv-prom-exporter\config.yaml" /inheritance:r ^
+       /grant:r SYSTEM:F Administrators:F
 
-    <h3>Uninstall</h3>
-    <p>Stop the service, unregister it, drop the config dir, then
-       remove the MSI:</p>
-<pre>sc stop ssv-prom-exporter
-"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" -uninstall
-rmdir /s /q "C:\ProgramData\ssv-prom-exporter"
-msiexec /x ssv-prom-exporter-X.Y.Z-x64.msi /qn</pre>
-  </section>
+<span class="c">:: 3. Register and start. Only -config lands in the SCM ImagePath.</span>
+"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" ^
+  -install -config "C:\ProgramData\ssv-prom-exporter\config.yaml"
+sc start ssv-prom-exporter</code></pre>
+  <p>The MSI does <b>not</b> register the service (so config paths and credentials never leak into
+  MSI properties); <code>-install</code> does, baking only the explicitly-set flags into the SCM
+  <code>ImagePath</code>. Service-mode logs go to <b>Windows Logs → Application</b> under the
+  service's Event Log source.</p>
+</section>
 
-  <!-- ============== Security ============== -->
-  <section id="security">
-    <h2>Security notes</h2>
-    <div class="warn">
-      <span class="lbl">Caution.</span>
-      The Windows SCM stores a service's command line in
-      <code>ImagePath</code>, readable by any local admin via
-      <code>sc qc &lt;name&gt;</code>. Anything passed on the
-      install-time command line — including <code>-pass</code> —
-      therefore leaks to local admins. Always use the YAML config
-      workflow so that only <code>-config &lt;path&gt;</code> lands
-      in <code>ImagePath</code>.
-    </div>
-    <ul>
-      <li>Tighten the ACL on <code>config.yaml</code> to
-          <code>SYSTEM:F Administrators:F</code> (no inheritance).
-          The <code>icacls</code> line above does this.</li>
-      <li><code>insecure: true</code> is the default because SSV
-          ships self-signed certs. Once your site maintains an
-          internal PKI, plan to flip it off — the custom CA pool
-          flag is on the roadmap.</li>
-    </ul>
-  </section>
+<section id="ha">
+  <h1>High availability &amp; multi-group</h1>
+  <h3>Failover</h3>
+  <p>The exporter falls over to a backup management server when the primary is unreachable:</p>
+  <ul>
+    <li>After each successful inventory scrape, every IP from <code>/servers[].IpAddresses</code> is
+        added to the backup list (filtered by <code>SSV_BACKUP_CIDRS</code>, default = the primary's <code>/24</code>).</li>
+    <li>On a transient failure (network error, timeout, HTTP 5xx) the next endpoint is tried. HTTP 4xx
+        is <b>not</b> a failover trigger — it's a config bug.</li>
+    <li>The last-known-good endpoint is sticky for 5&nbsp;min, so during an outage only the first call
+        pays the dial-timeout cost; after 5&nbsp;min the next call retries the primary, detecting recovery.</li>
+    <li>The <code>ServerHost</code> header is rewritten per endpoint (each backup uses its own IP);
+        SSV rejects hostname-based <code>ServerHost</code> values with HTTP 400.</li>
+  </ul>
+  <p>Seed the backup list before the first scrape with <code>SSV_BASES=ip1,ip2,...</code>.</p>
 
-  <!-- ============== Reference ============== -->
-  <section id="reference">
-    <h2>Reference</h2>
-    <p>This chapter covers the architecture diagram and the
-       short-term roadmap.</p>
-    <ul class="link-list">
-      <li><a class="lnk" href="#architecture">Architecture</a> — three-tier collector model, failover, retry/backoff, session auth.</li>
-      <li><a class="lnk" href="#whatsnext">What's next</a> — known gaps and roadmap items.</li>
-    </ul>
-  </section>
+  <h3>Multi-group</h3>
+  <p>SSV management servers federate their state: <code>/serverGroups</code> returns the local group
+  plus every linked peer, and <code>/servers</code> mixes local nodes with remote ones, but
+  <code>/performance/{id}</code> is local-only. The exporter therefore scrapes per-server inventory
+  and performance <b>only for the local group</b> (<code>OurGroup=true</code>). <b>Run one exporter
+  per SSV group</b>, and list them all in <code>EXPORTER_TARGETS</code>:</p>
+<pre><code>EXPORTER_TARGETS=<span class="s">HCI104=10.12.104.121:9876,HCI130=10.12.130.121:9876</span></code></pre>
+  <p>Each becomes a Prometheus target carrying its <code>group=&lt;name&gt;</code> label, and the
+  dashboards filter on <code>$group</code> end-to-end.</p>
+</section>
 
-  <!-- ============== Architecture ============== -->
-  <section id="architecture">
-    <h2>Architecture</h2>
-    <figure>
-      <img src="architecture.png" alt="ssv-prom-exporter architecture diagram">
-      <figcaption>Prometheus scrapes the exporter's <code>/metrics</code>; three independent collectors fan out one REST call per object via a shared client with failover, retry/backoff and session-based auth.</figcaption>
-    </figure>
-    <p>
-      The exporter is a single Go binary. It registers itself with
-      the Windows SCM and writes to the Event Log; the same
-      <code>.exe</code> also runs interactively from a console for
-      quick diagnostics (<code>-ping</code>).
-    </p>
-    <p>
-      The REST client opens a SANsymphony session
-      (<code>POST /sessions</code>, with the literal
-      <code>Basic &lt;user&gt; &lt;pass&gt;</code> form), reuses the
-      returned token (<code>Authorization: Token &lt;token&gt;</code>),
-      transparently re-auths once on HTTP 401, and revokes every
-      session at shutdown.
-    </p>
-  </section>
+<section id="troubleshoot">
+  <h1>Troubleshooting &amp; gotchas</h1>
+  <table>
+    <tr><th>Symptom</th><th>Cause / fix</th></tr>
+    <tr><td><code>ssv_up=0</code> on all collectors, fast-fail</td><td>Bad credentials, wrong <code>ServerHost</code>, or a stale session token. Check <code>docker compose logs exporter</code>.</td></tr>
+    <tr><td>HTTP 400 / <code>ErrorCode 9</code></td><td>The mandatory <code>ServerHost</code> header is missing or set to a hostname. It must be the <b>IP</b> being hit — hostnames are rejected even when they resolve.</td></tr>
+    <tr><td>Grafana panels empty for a group</td><td>The <b>Group</b> dropdown doesn't match a scraped target, or that exporter's <code>performance</code> tier is down. Check Prometheus targets.</td></tr>
+    <tr><td>prom-clip import "succeeds" but nothing lands</td><td>Target Prometheus has no out-of-order window — set <code>PROM_REMOTE_WRITE=1</code> + <code>PROM_OOO_WINDOW</code>.</td></tr>
+    <tr><td>Data looks stale</td><td>SSV's REST cache is 30&nbsp;s by default (<code>RequestExpirationTime</code> in the mgmt server's <code>Web.config</code>); scraping faster sees stale data.</td></tr>
+  </table>
+</section>
 
-  <!-- ============== What's next ============== -->
-  <section id="whatsnext">
-    <h2>What's next</h2>
-    <ul>
-      <li>Close the coverage gaps surfaced by the dashboards
-          (depletion, tiering, %allocated).</li>
-      <li>Vendor-enum mapping for state metrics so dashboards no
-          longer translate via Grafana value mappings.</li>
-      <li>Custom CA pool flag to flip <code>-insecure</code> off in
-          sites with an internal PKI.</li>
-      <li>Validate against PSP 20 / 21 and add the version label to
-          <code>ssv_server_info</code>.</li>
-    </ul>
-    <div class="note">
-      <span class="lbl">Repository.</span>
-      <a href="https://github.com/lblanc/ssv-prom-exporter" target="_blank" rel="noopener">github.com/lblanc/ssv-prom-exporter</a>
-      — file issues, send pull requests, read the
-      <code>CHANGELOG</code>.
-    </div>
-  </section>
+<section id="releases">
+  <h1>Releases</h1>
+  <p>Releases are produced by GitHub Actions on an annotated <code>v*</code> tag. Each release ships
+  the Windows <code>.exe</code>, the MSI, a Linux tarball, <code>SHA256SUMS</code>, and multi-arch
+  GHCR images for both <code>ssv-prom-exporter</code> and <code>prom-clip</code>. The latest published
+  release is <b>v0.8.1</b>; see the project's
+  <a href="https://github.com/lblanc/ssv-prom-exporter/releases">GitHub Releases</a> for the full list
+  and the <code>CHANGELOG.md</code> for per-version notes.</p>
+  <p style="color:var(--grey);font-size:12.5px;margin-top:26px;border-top:1px solid var(--rule);padding-top:12px;">
+  DataCore SANsymphony Prometheus Exporter — Docker Compose guide · screenshots captured live against
+  a PSP&nbsp;20 lab. MIT-licensed.</p>
+</section>
 
-  <footer class="footer">
-    <span>ssv-prom-exporter Help · v0.8.0 · MIT</span>
-    <span>
-      <a href="https://github.com/lblanc/ssv-prom-exporter">GitHub</a>
-      ·
-      <a href="../user-guide.pdf">PDF version</a>
-    </span>
-  </footer>
-
-</div>
-</main>
+</div></main>
 
 <script>
-  /* ---- Sidebar accordion ---- */
-  const chapters = [...document.querySelectorAll('.sidebar .chapter')];
-  chapters.forEach(ch => {
-    ch.querySelector('.chapter-head').addEventListener('click', (e) => {
-      // Let normal anchor navigation happen, but also toggle expansion.
-      const willOpen = !ch.classList.contains('open');
-      // Close other chapters when opening this one (accordion behavior).
-      if (willOpen) {
-        chapters.forEach(c => c.classList.remove('open'));
-        ch.classList.add('open');
-      } else {
-        ch.classList.remove('open');
+  // sidebar active-link tracking
+  const links = [...document.querySelectorAll('.sidebar a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map.get(e.target.id);
+        if (a) a.classList.add('active');
       }
     });
-  });
-
-  /* ---- Scrollspy: highlight current section in sidebar + topbar tabs ---- */
-  const sectionToChapter = {
-    welcome: 'welcome', overview: 'welcome',
-    'getting-started': 'started', requirements: 'started',
-    'install-configure': 'install', install: 'install',
-    'install-linux': 'install', docker: 'install',
-    configure: 'install', 'smoke-test': 'install',
-    'run-observe': 'observe', prometheus: 'observe',
-    'full-stack': 'observe', dashboards: 'observe', metrics: 'observe',
-    operate: 'operate', 'high-availability': 'operate', troubleshoot: 'operate', day2: 'operate', security: 'operate',
-    reference: 'reference', architecture: 'reference', whatsnext: 'reference',
-  };
-  const sectionTitle = {
-    welcome: 'Welcome', overview: 'Overview',
-    'getting-started': 'Begin Here', requirements: 'Requirements',
-    'install-configure': 'Install & Configure',
-    install: 'Install on Windows',
-    'install-linux': 'Install on Linux',
-    docker: 'Run with Docker',
-    configure: 'Configure', 'smoke-test': 'Smoke-test',
-    'run-observe': 'Run & Observe', prometheus: 'Wire to Prometheus',
-    'full-stack': 'Full-stack compose',
-    dashboards: 'Grafana dashboards', metrics: 'Metrics cheatsheet',
-    operate: 'Operate', 'high-availability': 'High availability', troubleshoot: 'Troubleshooting', day2: 'Day-2 operations', security: 'Security notes',
-    reference: 'Reference', architecture: 'Architecture', whatsnext: "What's next",
-  };
-  const chapterTitle = {
-    welcome: 'Welcome to ssv-prom-exporter Help',
-    started: 'Getting Started',
-    install: 'Install & Configure',
-    observe: 'Run & Observe',
-    operate: 'Operate',
-    reference: 'Reference',
-  };
-
-  const sectionsList = Object.keys(sectionToChapter)
-    .map(id => ({id, el: document.getElementById(id)}))
-    .filter(s => s.el);
-
-  function findCurrentSection() {
-    const y = window.scrollY + 110; // a bit below topbar
-    let cur = sectionsList[0];
-    for (const s of sectionsList) {
-      if (s.el.offsetTop <= y) cur = s;
-    }
-    return cur;
-  }
-
-  function syncCurrent() {
-    const cur = findCurrentSection();
-    const chapId = sectionToChapter[cur.id];
-
-    // Sidebar — chapter open + current
-    chapters.forEach(c => {
-      const isThis = c.dataset.chapter === chapId;
-      c.classList.toggle('current', isThis);
-      c.classList.toggle('open', isThis);
-    });
-    // Sidebar pages active
-    document.querySelectorAll('.sidebar .pages a').forEach(a => {
-      a.classList.toggle('current', a.getAttribute('href') === '#' + cur.id);
-    });
-
-    // Topbar tab active
-    document.querySelectorAll('.topbar .tabs a').forEach(a => {
-      a.classList.toggle('active', a.dataset.tab === chapId);
-    });
-
-    // Breadcrumb
-    const bc = document.getElementById('bc-current');
-    if (chapId === 'welcome' && (cur.id === 'welcome' || cur.id === 'overview')) {
-      bc.textContent = sectionTitle[cur.id];
-    } else {
-      bc.textContent = chapterTitle[chapId] + (cur.id !== chapId ? ' > ' + sectionTitle[cur.id] : '');
-    }
-  }
-  window.addEventListener('scroll', syncCurrent, {passive: true});
-  syncCurrent();
-
-  /* ---- Sidebar search ---- */
-  function ssvSearch(q) {
-    q = q.trim().toLowerCase();
-    document.querySelectorAll('.sidebar .pages a').forEach(a => {
-      if (!q) { a.style.display = ''; return; }
-      a.style.display = a.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-    // Auto-expand chapters that have a visible page when searching
-    if (q) {
-      chapters.forEach(c => {
-        const hasMatch = [...c.querySelectorAll('.pages a')].some(a => a.style.display !== 'none');
-        c.classList.toggle('open', hasMatch);
-      });
-    }
-  }
+  }, { rootMargin: '-80px 0px -70% 0px', threshold: 0 });
+  document.querySelectorAll('section[id]').forEach(s => obs.observe(s));
 </script>
-
 </body>
 </html>
