@@ -117,17 +117,21 @@ docker-push-prom-clip: docker-build-prom-clip
 	docker push $(PROMCLIP_IMAGE):$(IMAGE_TAG)
 	docker push $(PROMCLIP_IMAGE):latest
 
-# Regenerate the operator user-guide PDF from out/user-guide.md. Uses
-# pandoc + weasyprint (Debian: apt install pandoc weasyprint).
-# Note: out/web-help/index.html is NOT generated from the markdown — it
-# has its own sidebar/scrollspy structure and must be edited by hand,
-# in sync with user-guide.md.
+# Regenerate the operator user-guide PDF (out/user-guide.pdf) from the
+# HTML online help (out/web-help/index.html) via headless chromium — the
+# help carries the embedded dashboard / prom-clip screenshots and a print
+# stylesheet, so the PDF is a faithful render of the online help.
+# out/user-guide.md is the standalone markdown version of the same guide
+# (hand-maintained in sync with the help); those two plus out/web-help/
+# are the three versioned doc artifacts (see the .gitignore allowlist).
 docs-pdf:
-	@command -v pandoc >/dev/null     || { echo "pandoc not found (apt install pandoc)"; exit 1; }
-	@command -v weasyprint >/dev/null || { echo "weasyprint not found (apt install weasyprint)"; exit 1; }
-	cd out && pandoc --pdf-engine=weasyprint --css=pdf-style.css \
-	    -o user-guide.pdf user-guide.md
-	@echo "built out/user-guide.pdf"
+	@CHROME=$$(command -v chromium || command -v chromium-browser || command -v google-chrome); \
+	  [ -n "$$CHROME" ] || { echo "chromium not found (apt install chromium)"; exit 1; }; \
+	  "$$CHROME" --headless --no-sandbox --disable-gpu --no-pdf-header-footer \
+	      --virtual-time-budget=20000 \
+	      --print-to-pdf=out/user-guide.pdf \
+	      "file://$(CURDIR)/out/web-help/index.html"
+	@echo "built out/user-guide.pdf from out/web-help/index.html"
 
 clean:
 	rm -rf $(BIN)/ $(DIST)/

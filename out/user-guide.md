@@ -1,8 +1,8 @@
 ---
 title: "ssv-prom-exporter — User guide"
-subtitle: "Install, configure and run the DataCore SANsymphony Prometheus exporter"
+subtitle: "Deploy and operate the DataCore SANsymphony Prometheus exporter with Docker Compose"
 author: "Luc Blanc"
-date: "2026-05-18"
+date: "2026-06-04"
 ---
 
 # 1. What you are looking at
@@ -12,116 +12,352 @@ DataCore SANsymphony (SSV). It scrapes the SSV REST API and exposes
 inventory, health and performance signals on `/metrics` in the
 standard Prometheus exposition format.
 
-Three deployment options are supported, all from the same Go source
-tree:
+This guide is **Docker-Compose-first**: the fastest path to a working
+SANsymphony monitoring stack — Prometheus, Grafana, five ready-made
+dashboards, and optionally the exporter itself and the `prom-clip`
+companion — is the bundled `deploy/` compose project. Native
+Windows-service and Linux-systemd installs are covered in section 9 for
+production nodes that don't run a container runtime.
 
-- **Windows** — native Windows service (no NSSM, no wrapper script);
-  install via MSI.
-- **Linux** — static binary + hardened systemd unit; install via
-  tarball.
-- **Docker** — multi-arch OCI image on GHCR, runs as nonroot uid
-  65532 with a `wget` HEALTHCHECK on `/metrics`.
+The exporter does **not** need to run on the SSV host. Any host on the
+network with TCP/443 reachability to a SANsymphony management server is
+enough.
 
-The exporter does **not** need to run on the SSV host. Any host on
-the network with TCP/443 reachability to a SANsymphony management
-server is enough.
+> All screenshots in this guide were captured live against a DataCore
+> PSP 20 lab through the compose stack described here. The same content
+> is available as an HTML online help in `out/web-help/index.html`.
 
-This guide walks an operator through day-1 install and day-2
-operations. For architecture and design intent, read the deck
-shipped next to this document; for the full developer reference, read
-the project [README] and [DECISIONS.md].
+# 2. The compose stack at a glance
 
-[README]: https://github.com/lblanc/ssv-prom-exporter#readme
-[DECISIONS.md]: https://github.com/lblanc/ssv-prom-exporter/blob/main/DECISIONS.md
+Everything lives under `deploy/`. The stack is built around **three
+optional services selected by compose profiles**, so you only run what
+you need:
 
-# 2. Requirements
+| Service       | Profile     | Host port            | Role |
+|---------------|-------------|----------------------|------|
+| `prometheus`  | *always*    | `9090`               | Scrapes the exporter(s); 15 d retention. |
+| `grafana`     | *always*    | `3000`               | Five SSV dashboards, anonymous Viewer on. |
+| `exporter`    | `full`      | *internal*           | Runs `ssv-prom-exporter` itself against one SSV group. |
+| `prom-clip`   | `clip`      | `127.0.0.1:8088`     | Clip a Prometheus time window and replay it elsewhere. |
 
-- DataCore SANsymphony **PSP 20+**.
-- A target host (Windows, Linux, or any container host) with network
-  reachability to a SANsymphony mgmt server on TCP/443.
-- A SANsymphony account that can list `/serverGroups`, `/servers`,
-  `/pools`, `/virtualDisks`, `/hosts`, `/ports`, `/physicalDisks`,
-  `/alerts`, `/monitors`, and read `/performance/{id}`. A Windows
-  account granted SSV administrative access works.
-- An ACL'ed location to drop the YAML configuration file. The
-  recommended path is platform-specific:
-  - Windows — `C:\ProgramData\ssv-prom-exporter\config.yaml`
-  - Linux — `/etc/ssv-prom-exporter/config.yaml`
-  - Docker — a bind-mounted host file or `-e SSV_URL=...` env vars
+Profiles compose freely — `--profile full --profile clip` brings up all
+four. With no profile flag you get just Prometheus + Grafana, which is
+Scenario A (section 4).
 
-# 3. Install on Windows (MSI workflow)
-
-The MSI installs the binary and example config to
-`C:\Program Files\ssv-prom-exporter\`. It deliberately does **not**
-register the service — registration is a separate step so credentials
-never land in MSI properties or in the SCM `ImagePath`.
-
-From an **elevated** prompt (replace `X.Y.Z` with the version you
-downloaded from the GitHub Releases page):
-
-```bat
-:: 1. Run the MSI (silent).
-msiexec /i ssv-prom-exporter-X.Y.Z-x64.msi /qn
-
-:: 2. Drop the YAML config and tighten ACLs.
-copy "C:\Program Files\ssv-prom-exporter\config.example.yaml" ^
-     "C:\ProgramData\ssv-prom-exporter\config.yaml"
-notepad "C:\ProgramData\ssv-prom-exporter\config.yaml"
-icacls "C:\ProgramData\ssv-prom-exporter\config.yaml" /inheritance:r ^
-       /grant:r SYSTEM:F Administrators:F
-
-:: 3. Register the service. Only -config lands in the SCM ImagePath.
-"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" ^
-  -install -config "C:\ProgramData\ssv-prom-exporter\config.yaml"
-
-:: 4. Start it.
-sc start ssv-prom-exporter
+```
+                     deploy/docker-compose.yml
+ +--------------------------------------------------------------+
+ |  prometheus:9090 ---------> grafana:3000  (5 dashboards)      |
+ |      ^ scrape                                                 |
+ |      |                                                        |
+ |  +---+-------------+       +------------------+               |
+ |  | exporter:9876   |       | prom-clip:8088   |               |
+ |  | (--profile full)|       | (--profile clip) |               |
+ |  +---+-------------+       +------------------+               |
+ +------+--------------------------------------------------------+
+        | REST / 443
+        v
+  SANsymphony management server(s)
 ```
 
-The service is created with start type `Automatic`, running as
-`LocalSystem`. The Event Log source is registered under the service
-name; logs land in **Windows Logs → Application** filtered on that
-source.
+# 3. Requirements
 
-# 4. Install on Linux (systemd workflow)
+- A Docker host with **Compose v2** (`docker compose`, not the legacy
+  `docker-compose`).
+- DataCore SANsymphony **PSP 20+** (older may work, untested).
+- TCP/443 reachability from wherever the exporter runs to the SSV
+  management server.
+- Outbound network from the Docker host to your exporter targets
+  (Scenario A) or to the SSV REST API (Scenario B).
 
-The Linux tarball ships a static binary, a hardened systemd unit, and
-a reference `install-linux.sh` that lays everything out. As **root**:
+# 4. Scenario A — monitor exporters that already run elsewhere
+
+**Default profile.** The exporter runs on each SAN host (as a Windows
+service / systemd unit / standalone container); the compose stack only
+adds Prometheus + Grafana and scrapes those exporters over the network.
+This is the normal production topology.
+
+## 4.1 Configure `deploy/.env`
+
+```env
+# One entry per SANsymphony group: "groupname=host:port,...".
+# groupname becomes the Prometheus `group` label the dashboards filter on.
+EXPORTER_TARGETS=LAB-PVE=10.12.110.11:9876,HCI104=10.12.104.121:9876
+
+# Grafana admin password (anonymous Viewer is always on; this gates editing).
+GF_ADMIN_PASSWORD=admin
+```
+
+A single target is just as valid:
+`EXPORTER_TARGETS=lab=10.12.110.11:9876`.
+
+## 4.2 Bring it up
 
 ```sh
-tar xzf ssv-prom-exporter-vX.Y.Z-linux-amd64.tar.gz
-cd     ssv-prom-exporter-vX.Y.Z-linux-amd64
-./install-linux.sh
-$EDITOR /etc/ssv-prom-exporter/config.yaml   # set url / user / pass
-systemctl enable --now ssv-prom-exporter
+cd deploy
+docker compose up -d
+docker compose ps
 ```
 
-The installer places:
-
-- `/usr/local/bin/ssv-prom-exporter` — the static binary.
-- `/etc/systemd/system/ssv-prom-exporter.service` — the systemd unit.
-- `/etc/ssv-prom-exporter/config.yaml` — created from
-  `config.example.yaml` on the first install, **never overwritten on
-  upgrade**.
-
-The unit runs as a `DynamicUser` (no separate `useradd` step) with
-`ProtectSystem=strict`, `NoNewPrivileges`, a `SystemCallFilter`,
-restricted address families (AF_INET / AF_INET6 / AF_UNIX only) and
-memory / task limits. Output goes to `journald`:
+## 4.3 Verify every target is scraped
 
 ```sh
-journalctl --unit ssv-prom-exporter -f
-systemctl status ssv-prom-exporter
+curl -s http://localhost:9090/api/v1/targets \
+  | jq -r '.data.activeTargets[] | "\(.labels.group)\t\(.scrapeUrl)\t\(.health)"'
 ```
 
-To upgrade: extract the new tarball, re-run `./install-linux.sh`. The
-config file is preserved; the unit is re-installed and the service
-restarted if it was already enabled.
+Or open Prometheus → **Status → Target health**. Each exporter target
+carries its `group` label and should read **UP**:
 
-# 5. Run with Docker
+![Prometheus Target health — the ssv-prom-exporter job shows 2/2 up, one
+target per SANsymphony group.](web-help/stack-01-prom-targets.png)
 
-Pre-built multi-arch images (`linux/amd64` + `linux/arm64`) are
-published on GHCR on every release:
+## 4.4 Open Grafana
+
+Browse to `http://localhost:3000` → **Dashboards → SSV**. Five
+dashboards are pre-provisioned; pick a group from the **Group** dropdown
+on any of them.
+
+![The provisioned SSV folder: Overview, Servers, Storage, Hosts and
+Ports.](web-help/stack-02-grafana-list.png)
+
+# 5. Scenario B — run everything in the stack (`--profile full`)
+
+For demos, PoCs, or sites that prefer to run everything containerized:
+the `full` profile adds the `exporter` service to the stack, so you
+install nothing on the SAN host. Prometheus auto-discovers it on the
+compose network (`exporter:9876`).
+
+## 5.1 Configure `deploy/.env`
+
+```env
+# --- exporter against one SSV group ---
+SSV_URL=https://10.12.110.11        # SSV REST base URL (the mgmt server)
+SSV_USER=administrator
+SSV_PASS=ChangeMe!
+SSV_GROUP=lab                       # becomes the Prometheus `group` label
+
+# Optional failover knobs (see section 10)
+# SSV_BASES=10.12.110.12,10.12.110.13
+# SSV_BACKUP_CIDRS=10.12.110.0/24
+
+# Leave EXPORTER_TARGETS unset — Prometheus auto-targets exporter:9876.
+GF_ADMIN_PASSWORD=admin
+```
+
+## 5.2 Bring it up
+
+`--build` builds the exporter image locally from the repo. Drop it to
+pull `ghcr.io/lblanc/ssv-prom-exporter:latest` instead.
+
+```sh
+cd deploy
+docker compose --profile full up -d --build
+```
+
+## 5.3 Watch it come alive
+
+```sh
+docker compose logs -f exporter
+docker compose exec exporter wget -qO- http://127.0.0.1:9876/metrics | grep '^ssv_up'
+# ssv_up{collector="health"} 1
+# ssv_up{collector="inventory"} 1
+# ssv_up{collector="performance"} 1
+```
+
+`/metrics` is internal by default. To curl it from the host while in
+`--profile full`, uncomment the `ports:` block (`- "9876:9876"`) on the
+`exporter` service in `deploy/docker-compose.yml`.
+
+Pin a released image instead of building:
+
+```env
+EXPORTER_IMAGE=ghcr.io/lblanc/ssv-prom-exporter:v0.9.0
+```
+
+```sh
+docker compose --profile full up -d        # no --build → pulls EXPORTER_IMAGE
+```
+
+# 6. Scenario C — add the prom-clip companion (`--profile clip`)
+
+`prom-clip` clips a time window out of one Prometheus and replays it
+into another (gzipped OpenMetrics out, remote-write in). The `clip`
+profile runs its web UI alongside the stack, bound on host loopback
+`127.0.0.1:8088` — no Windows Firewall prompt, no external exposure.
+
+```sh
+cd deploy
+docker compose --profile clip up -d --build
+# UI: http://127.0.0.1:8088
+```
+
+Combine with `--profile full` to run the exporter, Prometheus, Grafana
+**and** prom-clip together:
+
+```sh
+docker compose --profile full --profile clip up -d --build
+```
+
+![prom-clip Connection — a single Prometheus endpoint is the source for
+Export and the remote-write target for Import.](web-help/clip-01-connection.png)
+
+To **import** a clip back into the stack's Prometheus, it must accept
+remote-write. That is an opt-in, set in `deploy/.env`:
+
+```env
+PROM_REMOTE_WRITE=1     # turns on --web.enable-remote-write-receiver
+PROM_OOO_WINDOW=7d      # out-of-order window; old samples land instead of being dropped
+```
+
+```sh
+docker compose up -d    # re-create prometheus with the receiver enabled
+```
+
+Without `PROM_OOO_WINDOW`, any sample older than the ~2 h head block is
+discarded while the write still returns `200 OK` — the import looks
+successful but lands nothing.
+
+# 7. Configuration reference
+
+## 7.1 `deploy/.env`
+
+| Variable            | Profile | Default                | Description |
+|---------------------|---------|------------------------|-------------|
+| `EXPORTER_TARGETS`  | default | `lab=host.docker.internal:9876` | Comma list `name=host:port`. Each `name` becomes the `group` label. |
+| `SSV_URL`           | full    | *required*             | SSV REST base URL, e.g. `https://10.0.0.1`. |
+| `SSV_USER`          | full    | *required*             | SSV username. |
+| `SSV_PASS`          | full    | *required*             | SSV password. |
+| `SSV_GROUP`         | full    | `full`                 | Label applied to the in-stack exporter's metrics. |
+| `SSV_BASES`         | full    | *empty*                | Cold-start backup IPs (comma list). |
+| `SSV_BACKUP_CIDRS`  | full    | primary's `/24`        | CIDR allowlist for discovered backups. `0.0.0.0/0` disables. |
+| `EXPORTER_IMAGE`    | full    | `ghcr.io/lblanc/ssv-prom-exporter:latest` | Image when not using `--build`. |
+| `GF_ADMIN_PASSWORD` | always  | `admin`                | Grafana admin password (editing only). |
+| `PROM_REMOTE_WRITE` | always  | *off*                  | `1` to accept inbound remote-write. |
+| `PROM_OOO_WINDOW`   | always  | `7d`                   | Out-of-order storage window; required for backfill. |
+| `PROM_CLIP_IMAGE`   | clip    | `ghcr.io/lblanc/prom-clip:latest` | Image for the prom-clip service. |
+
+## 7.2 Exporter settings (env vars & flags)
+
+Inside the stack (`--profile full`) the exporter is configured through
+the `SSV_*` env vars above. Run standalone, the same settings are
+available as flags and/or a YAML config.
+
+| Flag               | Env var             | Description |
+|--------------------|---------------------|-------------|
+| `-config`          | `SSV_CONFIG`        | Path to a YAML config file. |
+| `-url`             | `SSV_URL`           | SSV REST base URL. |
+| `-user` / `-pass`  | `SSV_USER` / `SSV_PASS` | Credentials. |
+| `-host`            | `SSV_HOST`          | `ServerHost` header; defaults to the host of `-url`. |
+| `-insecure`        | —                   | Skip TLS verification (default `true`). |
+| `-bases`           | `SSV_BASES`         | Backup IPs seeded before the first scrape. |
+| `-backup-cidrs`    | `SSV_BACKUP_CIDRS`  | CIDR allowlist for discovered backups. |
+| `-retries`         | —                   | Retries after every endpoint failed transiently (default `2`). |
+| `-retry-delay`     | —                   | Initial backoff (default `200ms`); doubles, capped 2 s, ±50% jitter. |
+| `-perf-workers`    | —                   | Concurrent `/performance/{id}` calls (default `8`). |
+| `-listen`          | —                   | Exporter HTTP listen address, e.g. `:9876`. |
+| `-ping`            | —                   | Probe `/serverGroups`, print, exit. |
+| `-install` / `-uninstall` | —            | Register / remove the Windows service. |
+
+Precedence: `explicit flag > env var (flag default) > YAML > built-in
+default`. Unknown YAML keys are rejected at load time.
+
+## 7.3 Compose command cheat-sheet
+
+```sh
+# Bring up / tear down
+docker compose up -d                                  # Scenario A
+docker compose --profile full up -d --build           # Scenario B
+docker compose --profile full --profile clip up -d --build  # B + C
+docker compose down                                   # stop, keep data
+docker compose down -v                                # stop AND wipe TSDB + Grafana
+
+# Status & logs
+docker compose ps
+docker compose logs -f prometheus
+docker compose logs -f exporter         # only with --profile full
+
+# Apply an .env change to one service
+docker compose up -d --force-recreate prometheus
+
+# Reload Prometheus config without a restart
+curl -X POST http://localhost:9090/-/reload
+```
+
+# 8. The Grafana dashboards
+
+Grafana is provisioned with a datasource and **five dashboards** in the
+**SSV** folder, all cross-linked through an "SSV" dropdown that
+preserves the time range and selected filters as you move between them.
+Every panel is filtered by a **Group** template variable.
+
+## 8.1 Overview
+
+Global health: scrape status, active alerts (level / server / age),
+server states, capacity rollups, total IOPS & latency, top-N noisy
+vdisks, active monitors.
+
+![SSV — Overview](web-help/01-overview.png)
+
+## 8.2 Servers
+
+Per-server (repeated row): state, cache, IOPS & throughput, and IOPS &
+latency broken down by IO pipeline class (front-end target / mirror
+target / back-end / pool / target). A "Server versions" table reads
+product / OS / build from `ssv_server_info`.
+
+![SSV — Servers](web-help/02-servers.png)
+
+## 8.3 Storage
+
+Per-pool (status, capacity, IOPS, latency) with a collapsible
+Physical-disks subsection, and per-vdisk (status, cache hit ratio, IOPS,
+throughput, latency).
+
+![SSV — Storage](web-help/03-storage.png)
+
+## 8.4 Hosts
+
+SAN-client inventory + per-host IOPS & bandwidth, peak IO size,
+provisioned capacity, plus a Connections subsection for the host's
+ports.
+
+![SSV — Hosts](web-help/04-hosts.png)
+
+## 8.5 Ports
+
+Per-port (table + IOPS + bandwidth + target IO latency + pending
+commands) with a collapsible Errors row (link-layer counters).
+
+![SSV — Ports](web-help/05-ports.png)
+
+Anonymous access is read-only Viewer. Log in as `admin` with
+`GF_ADMIN_PASSWORD` to edit.
+
+## 8.6 Exposed metrics
+
+- **Scrape framing**: `ssv_up{collector=...}`,
+  `ssv_scrape_duration_seconds{collector=...}`.
+- **Inventory**: `ssv_server_group_*`, `ssv_server_*` (+ `info`),
+  `ssv_pool_*`, `ssv_virtual_disk_*`, `ssv_host_*`, `ssv_port_*`,
+  `ssv_physical_disk_*` (+ `ssv_physical_disk_pool` relation gauge).
+- **Health**: `ssv_monitor_state`, `ssv_alerts_total`,
+  `ssv_alert_info`, `ssv_alert_age_seconds`.
+- **Performance**: per-object `read/write_bytes_total`,
+  `read/write_ops_total` and per-object extras; latency in seconds
+  (`*_time_seconds_total` + `*_max_time_seconds`), server tier split by
+  IO pipeline class.
+
+```promql
+# average IO latency per class
+rate(ssv_server_class_io_time_seconds_total[$__rate_interval])
+  /
+rate(ssv_server_class_io_operations_total[$__rate_interval])
+```
+
+# 9. Running the exporter without compose
+
+## 9.1 Plain docker run
 
 ```sh
 docker run --rm -p 9876:9876 \
@@ -131,539 +367,115 @@ docker run --rm -p 9876:9876 \
     ghcr.io/lblanc/ssv-prom-exporter:latest
 ```
 
-Image properties:
+Multi-arch images (`linux/amd64` + `linux/arm64`) are published on every
+release as `vX.Y.Z`, `X.Y` and `latest`.
 
-- Built on `alpine:3` (~34 MB final).
-- Runs as nonroot uid 65532.
-- Embeds `tini` so `docker stop` (SIGTERM) is forwarded cleanly to
-  the Go runtime — graceful shutdown.
-- Ships a `HEALTHCHECK` against `http://127.0.0.1:9876/metrics`
-  (30 s interval, 30 s start grace).
-
-Tags published: `vX.Y.Z`, `X.Y`, `latest`.
-
-To mount a YAML config instead of passing creds through env vars:
+## 9.2 Linux (systemd)
 
 ```sh
-docker run --rm -p 9876:9876 \
-    -v /etc/ssv/config.yaml:/etc/ssv-prom-exporter/config.yaml:ro \
-    ghcr.io/lblanc/ssv-prom-exporter:latest \
-    -config /etc/ssv-prom-exporter/config.yaml
+tar xzf ssv-prom-exporter-vX.Y.Z-linux-amd64.tar.gz
+cd     ssv-prom-exporter-vX.Y.Z-linux-amd64
+./install-linux.sh
+$EDITOR /etc/ssv-prom-exporter/config.yaml   # set url / user / pass
+systemctl enable --now ssv-prom-exporter
+journalctl --unit ssv-prom-exporter -f
 ```
 
-For a complete demo (exporter + Prometheus + Grafana with the five
-SSV dashboards), use the full-stack compose described in §9.
+## 9.3 Windows (native service / MSI)
 
-# 6. Configure
-
-`config.yaml` is the single source of truth. See
-`config.example.yaml` shipped with each release for the full schema
-with inline comments. The most common knobs:
-
-```yaml
-url:       https://10.0.0.1            # SSV REST base URL
-user:      administrator
-pass:      ChangeMe!
-listen:    ":9876"                     # HTTP listen for /metrics
-insecure:  true                        # SSV ships self-signed certs
-
-# Optional — backup management nodes seeded before the first scrape.
-# After that, the exporter auto-discovers them from /servers.
-bases:         "10.0.0.2,10.0.0.3"
-backup_cidrs:  "10.0.0.0/24"            # default = primary's /24
-
-# Optional — failure handling.
-retries:       2
-retry_delay:   "200ms"
-
-# Optional — performance collector concurrency.
-perf_workers:  8
-```
-
-Precedence:
-
-```
-explicit flag  >  env var (flag default)  >  YAML  >  built-in default
-```
-
-Unknown YAML keys are rejected at load time so a typo doesn't silently
-leave a setting at its default.
-
-# 7. Smoke-test
-
-From the target host, with the exporter running:
-
-```sh
-curl http://127.0.0.1:9876/metrics | grep ssv_up
-```
-
-You should see three lines, one per collector tier:
-
-```
-ssv_up{collector="inventory"}   1
-ssv_up{collector="health"}      1
-ssv_up{collector="performance"} 1
-```
-
-A zero on any tier means that collector's last scrape failed. Look at
-`ssv_scrape_duration_seconds{collector="..."}` and the platform's
-log channel (Windows Event Log / `journalctl` / `docker logs`) for
-the reason.
-
-One-shot REST probe without starting the HTTP server:
-
-```sh
-ssv-prom-exporter -ping -url https://10.0.0.1 \
-                  -user administrator -pass S3cret!
-```
-
-`-ping` prints the raw `/serverGroups` JSON and exits — useful during
-network / credentials triage.
-
-# 8. Wire to Prometheus
-
-Add the exporter as a scrape target. The recommended label is
-`group`, matching the SAN group name — that label is what the
-bundled Grafana dashboards filter on.
-
-```yaml
-scrape_configs:
-  - job_name: ssv
-    static_configs:
-      - targets: ["sansymphony-host-1:9876"]
-        labels:
-          group: "prod"
-      - targets: ["sansymphony-host-2:9876"]
-        labels:
-          group: "lab"
-```
-
-A 15 s scrape interval is the sweet spot:
-
-- Faster than SSV's 30 s REST cache buys nothing
-  (`RequestExpirationTime` on the mgmt server's `Web.config`).
-- Slower than 30 s makes counter `rate()` ranges noisy.
-
-# 9. Run the full Prometheus + Grafana + exporter stack
-
-A docker-compose stack ships under [`deploy/`] in the repo. Two
-deployment modes are supported through compose profiles.
-
-[`deploy/`]: https://github.com/lblanc/ssv-prom-exporter/tree/main/deploy
-
-## External exporters (default)
-
-Prometheus + Grafana run from compose; the exporter runs elsewhere
-(typically on each SAN host).
-
-```sh
-cd deploy
-cp .env.example .env
-$EDITOR .env          # set EXPORTER_TARGETS=name=host:port,...
-docker compose up -d
-```
-
-`EXPORTER_TARGETS=lab=10.0.0.10:9876,prod=10.1.0.10:9876` declares
-two targets; each name becomes the `group` Prometheus label.
-
-## Full stack with the exporter (`--profile full`)
-
-The exporter ALSO runs as a service in the compose stack. Useful for
-demos and for sites that prefer to run everything containerized.
-Single SSV group, single `.env`, single command:
-
-```sh
-cd deploy
-cp .env.example .env
-# Set SSV_URL / SSV_USER / SSV_PASS / SSV_GROUP in .env.
-# Leave EXPORTER_TARGETS commented out.
-docker compose --profile full up -d --build
-```
-
-Prometheus auto-discovers the in-stack exporter (scraping
-`exporter:9876` on the compose network) and stamps the `group`
-label from `SSV_GROUP` (default: `full`). The exporter's
-`/metrics` is not published on the host by default — uncomment the
-`ports:` block in `deploy/docker-compose.yml` if you want to curl it
-locally.
-
-The stack's Prometheus is pull-only by default. To accept inbound
-backfill from `prom-clip` (see §17), set `PROM_REMOTE_WRITE=1` in
-`.env` before bringing the stack up. That turns on both
-`--web.enable-remote-write-receiver` and
-`storage.tsdb.out_of_order_time_window` (default 7d, override with
-`PROM_OOO_WINDOW`). Without the OOO window Prometheus would silently
-drop any imported sample older than the current head block while still
-returning HTTP 200 on the write.
-
-## Endpoints
-
-- Grafana — <http://localhost:3000> (anonymous Viewer enabled;
-  `admin` / `GF_ADMIN_PASSWORD` to edit).
-- Prometheus — <http://localhost:9090>.
-
-Stop the stack with `docker compose down`; add `-v` to also wipe
-the TSDB and Grafana volumes.
-
-# 10. Grafana dashboards
-
-Five dashboards ship pre-provisioned in the **SSV** folder, all
-cross-linked through an "SSV" dropdown that preserves the time range
-and selected filters when navigating between them. Live screenshots
-follow.
-
-## 10.1 Overview
-
-Global health: scrape, alert details (level / server / age), server
-states, capacity rollups, total IOPS & latency, top-N noisy vdisks,
-active monitors.
-
-![SSV Overview dashboard — health, alerts, capacity, IOPS](screens/01-overview.png){ width=100% }
-
-## 10.2 Servers
-
-Per-server (repeated): state, cache used / size / hit ratios, IOPS &
-throughput, IOPS & latency by IO pipeline class (front-end target /
-mirror target / back-end / pool / target).
-
-![SSV Servers dashboard — per-server state, cache, IOPS by pipeline class](screens/02-servers.png){ width=100% }
-
-## 10.3 Storage
-
-Per-pool (status, capacity pie, IOPS, latency) with a collapsible
-Physical disks subsection (table + per-disk IOPS / throughput /
-latency / queue), per-vdisk (status, cache hit ratio, IOPS,
-throughput, latency). Filters: Group, Pool, Virtual Disk, Physical
-Disk.
-
-![SSV Storage dashboard — per-pool status, physical disks, per-vdisk](screens/03-storage.png){ width=100% }
-
-## 10.4 Hosts
-
-SAN-client inventory + per-host IOPS & bandwidth, peak IO size,
-provisioned capacity, plus a Connections (ports) subsection showing
-the host's ports with their IOPS & bandwidth.
-
-![SSV Hosts dashboard — SAN-client inventory, IOPS, peak IO size, provisioning](screens/04-hosts.png){ width=100% }
-
-## 10.5 Ports
-
-Per-port (table + IOPS + bandwidth + target IO latency + pending
-commands) with a collapsible Errors row plotting all link-layer
-counters together.
-
-![SSV Ports dashboard — per-port IOPS, target latency, pending commands](screens/05-ports.png){ width=100% }
-
-# 11. Metrics cheatsheet
-
-Non-exhaustive. Open `/metrics` on a running instance for the live
-list.
-
-**Scrape framing**
-
-- `ssv_up{collector}` — 1 if the last tier scrape succeeded.
-- `ssv_scrape_duration_seconds{collector}` — last scrape duration.
-
-**Inventory** (counters & gauges describing the topology)
-
-- `ssv_server_*` (state, cache, memory, `info{host_name, product_version, ...}`)
-- `ssv_server_group_*` (state, used/max bytes, `license_expires_seconds`)
-- `ssv_pool_*` (status, type, `chunk_size_bytes`)
-- `ssv_virtual_disk_*` (status, size_bytes, type, offline)
-- `ssv_host_*` (state, connection_state, `info{host_name, description, version}`)
-- `ssv_port_*` (connected, role_capability, `info{host, port_name, alias, ...}`)
-- `ssv_physical_disk_*` (status, size_bytes, free_bytes, `info{pool, tier, ...}`)
-
-**Health**
-
-- `ssv_monitor_state{monitor_id, template, target_id, caption}`
-- `ssv_alerts_total` — count
-- `ssv_alert_info{alert_id, machine, level, caller, message, ...}` — gauge=1 per alert
-- `ssv_alert_age_seconds{alert_id}`
-
-**Performance — bytes & ops** (counters)
-
-Same family per object: `read_bytes_total`, `write_bytes_total`,
-`read_ops_total`, `write_ops_total`, plus object-specific extras
-(server cache, pool capacity, port pending/errors, physical disk
-queue/pending, host provisioned/peak IO size).
-
-**Performance — latency** (counters / max gauges, **in seconds**)
-
-The exporter scales SSV's millisecond timers to seconds (Prometheus
-convention).
-
-- `ssv_server_class_io_{operations_total,time_seconds_total,max_time_seconds}{class}`
-  — class ∈ {front_end_target, mirror_target, physical_disk, pool, target}
-- `ssv_pool_{read,write,io}_time_seconds_total`,
-  `ssv_pool_{read,write,io}_max_time_seconds`
-- `ssv_virtual_disk_io_time_seconds_total`,
-  `ssv_virtual_disk_io_max_time_seconds`
-- `ssv_port_target_io_time_seconds_total`,
-  `ssv_port_target_io_max_time_seconds`
-- `ssv_physical_disk_{read,write,io}_time_seconds_total`,
-  `ssv_physical_disk_{read,write,io}_max_time_seconds`
-
-Average IO latency in PromQL:
-
-```promql
-rate(ssv_server_class_io_time_seconds_total[$__rate_interval])
-  /
-rate(ssv_server_class_io_operations_total[$__rate_interval])
-```
-
-# 12. Troubleshooting
-
-| Symptom                                                  | Likely cause / fix                                                                                  |
-|----------------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| `ssv_up{collector="inventory"} 0` at start               | Wrong URL, wrong creds, or `ServerHost` header not matching the IP. Run `-ping` to see the JSON error. |
-| All metrics are stale by N seconds                       | Normal — SSV's REST cache is 30 s. Don't scrape faster than that.                                  |
-| `HTTP 400 ErrorCode 9`                                   | `ServerHost` header missing. Should never happen with this exporter — file an issue.                |
-| `HTTP 400` after switching `-host` to a name             | Hostnames are rejected; `ServerHost` must be the **IP** the call is hitting.                        |
-| TLS handshake fails                                      | `insecure: true` is the default. Flip to `false` only when you have a CA pinned (planned flag).     |
-| `ssv_up` flips between 0 and 1 every scrape              | Primary mgmt node is flapping. Check that `/servers[].IpAddresses` populates the backup list and that `backup_cidrs` covers them. |
-| Counter `rate()` returns 0                               | The underlying SSV counter is in `NullCounterMap` for that object — not exposed by design.          |
-| Windows service won't start                              | Event Viewer → Windows Logs → Application, filter on `ssv-prom-exporter`. Most common cause: bad config path passed to `-install`. |
-| Linux service won't start                                | `journalctl --unit ssv-prom-exporter -n 50`. Typical causes: config file missing, wrong YAML key, blocked by `SystemCallFilter` if you've added a custom binary. |
-| Docker container restarts repeatedly (`Restarting`)      | `docker logs <container>`. Look for the same scrape errors as above. Healthcheck unhealthy = `/metrics` not reachable: confirm `-listen` matches the EXPOSEd port. |
-| Docker compose `--profile full` errors on `SSV_URL`      | The exporter service uses `${SSV_URL:?...}` so `docker compose config` and `up` fail loud if you forgot to set it in `.env`. Set it and retry. |
-
-# 13. Day-2 operations
-
-## 13.1 Upgrade
-
-**Windows.** Install the new MSI on top of the old one;
-`C:\ProgramData\ssv-prom-exporter\config.yaml` is preserved. Then
-restart the service:
+From an **elevated** prompt:
 
 ```bat
-sc stop  ssv-prom-exporter
+:: 1. Install the MSI
 msiexec /i ssv-prom-exporter-X.Y.Z-x64.msi /qn
+
+:: 2. Place config.yaml in ProgramData and tighten ACLs
+copy "C:\Program Files\ssv-prom-exporter\config.example.yaml" ^
+     "C:\ProgramData\ssv-prom-exporter\config.yaml"
+icacls "C:\ProgramData\ssv-prom-exporter\config.yaml" /inheritance:r ^
+       /grant:r SYSTEM:F Administrators:F
+
+:: 3. Register and start. Only -config lands in the SCM ImagePath.
+"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" ^
+  -install -config "C:\ProgramData\ssv-prom-exporter\config.yaml"
 sc start ssv-prom-exporter
 ```
 
-**Linux.** Extract the new tarball, re-run `./install-linux.sh`. The
-service is restarted automatically if it was already enabled.
+The MSI does **not** register the service; `-install` does, baking only
+the explicitly-set flags into the SCM `ImagePath`. Service-mode logs go
+to **Windows Logs → Application** under the service's Event Log source.
 
-**Docker.** `docker pull ghcr.io/lblanc/ssv-prom-exporter:vX.Y.Z`,
-then re-run the container. With `docker compose --profile full`:
-`docker compose pull && docker compose --profile full up -d`.
+# 10. High availability & multi-group
 
-## 13.2 Rotate credentials
+## 10.1 Failover
 
-Edit `config.yaml`, then restart the service:
+The exporter falls over to a backup management server when the primary
+is unreachable. After each successful inventory scrape, every IP from
+`/servers[].IpAddresses` is added to the backup list (filtered by
+`SSV_BACKUP_CIDRS`, default = the primary's `/24`). On a transient
+failure (network error, timeout, HTTP 5xx) the next endpoint is tried;
+HTTP 4xx is **not** a failover trigger. The last-known-good endpoint is
+sticky for 5 min. The `ServerHost` header is rewritten per endpoint —
+SSV rejects hostname-based `ServerHost` values with HTTP 400. Seed the
+list before the first scrape with `SSV_BASES=ip1,ip2,...`.
 
-- Windows — `sc stop ssv-prom-exporter` + `sc start ssv-prom-exporter`
-- Linux — `systemctl restart ssv-prom-exporter`
-- Docker — `docker restart <container>` (or `docker compose restart exporter` in full-stack mode)
+## 10.2 Multi-group
 
-## 13.3 Uninstall
-
-**Windows.**
-
-```bat
-sc stop ssv-prom-exporter
-"C:\Program Files\ssv-prom-exporter\ssv-prom-exporter.exe" -uninstall
-rmdir /s /q "C:\ProgramData\ssv-prom-exporter"
-msiexec /x ssv-prom-exporter-X.Y.Z-x64.msi /qn
-```
-
-**Linux.**
-
-```sh
-systemctl disable --now ssv-prom-exporter
-rm /etc/systemd/system/ssv-prom-exporter.service
-rm /usr/local/bin/ssv-prom-exporter
-rm -rf /etc/ssv-prom-exporter           # only if you want to drop config too
-systemctl daemon-reload
-```
-
-**Docker.** `docker rm -f <container>` (and `docker compose --profile full down` in full-stack mode).
-
-# 14. High availability behaviour
-
-The exporter survives a single mgmt-node outage by failing over to
-another node of the same SAN group.
-
-- After every successful inventory scrape, all IPs from
-  `/servers[].IpAddresses` are added to the backup list, filtered by
-  `backup_cidrs` (default = the primary's `/24`).
-- On a transient failure (network error, timeout, HTTP 5xx) the next
-  endpoint is tried. HTTP 4xx is a config bug, not an outage — it
-  doesn't trigger failover.
-- The last-known-good endpoint is sticky for 5 min, so during an
-  outage only the first call pays the dial-timeout cost. After 5 min
-  the next call retries the primary, detecting recovery.
-- If every endpoint fails transiently in one pass, the call is retried
-  with exponential backoff (`retries`, `retry_delay`).
-
-# 15. Multi-group SSV deployments
-
-SSV mgmt servers federate state across peer groups: a single
-`/serverGroups` REST call lists the local group plus every peer it
-has been linked to, and `/servers` blends local nodes with remote
-ones. The remote entries carry compound IDs of the form
-`<remote-group-uuid>:<server-uuid>` and have most descriptive
-fields empty; `/performance/{id}` is local-only.
-
-The exporter therefore restricts per-server inventory and
-performance fan-out to the **local** group, identified by
-`OurGroup=true` in `/serverGroups`. Concrete behaviour:
-
-- `ssv_server_group_*` still expose every group visible from the
-  local mgmt server, local or federated peer. You can keep alerting
-  on a peer group going unreachable.
-- `ssv_server_*` (state, info, cache, storage…), `ssv_server_class_*`
-  and the failover IP pool are scoped to the local nodes only.
-- Grafana's "Server" dropdown is fed from
-  `label_values(ssv_server_state{group=~"$group"}, server)`, so
-  federated-peer nodes no longer show as empty rows on the Servers
-  dashboard.
-
-Practical consequence: **run one exporter per SSV group**. The
-`EXPORTER_TARGETS` Prometheus generator already accepts that shape;
-each entry becomes a separate `job_name` with its own
-`group=<name>` label, which the dashboards filter on
-end-to-end:
+SSV management servers federate their state, but `/performance/{id}` is
+local-only. The exporter scrapes per-server inventory and performance
+**only for the local group** (`OurGroup=true`). **Run one exporter per
+SSV group** and list them all in `EXPORTER_TARGETS`:
 
 ```env
 EXPORTER_TARGETS=HCI104=10.12.104.121:9876,HCI130=10.12.130.121:9876
 ```
 
-If the API surprisingly returns no group flagged `OurGroup=true`
-(should never happen on a single-group install), the exporter
-falls back to keeping all servers, so a misbehaving API can't
-silently empty your inventory.
+# 11. prom-clip in depth
 
-# 16. Security notes
+`prom-clip` clips a time window from one Prometheus and replays it into
+another — to hand a dataset to support, seed a demo, or carry a
+before/after comparison between sites that aren't network-connected.
+Wire format: gzipped OpenMetrics (`.txt.gz`); replay uses the
+remote-write protocol.
 
-- **Windows.** The SCM stores a service's command line in
-  `ImagePath`, readable by any local admin via `sc qc <name>`.
-  Anything passed on the install-time command line — including
-  `-pass` — therefore leaks to local admins. Always use the YAML
-  config workflow so only `-config <path>` lands in `ImagePath`, and
-  tighten the ACL on `config.yaml` to
-  `SYSTEM:F Administrators:F` (no inheritance).
-- **Linux.** Keep `/etc/ssv-prom-exporter/config.yaml` at mode
-  `0640` owned by `root:root`; the `DynamicUser` reads it via
-  `ConfigurationDirectory=ssv-prom-exporter` once `systemd` opens it
-  for the unit. Never put secrets in `/etc/default/`.
-- **Docker.** Prefer mounted YAML over `-e SSV_PASS=...` for
-  long-running containers — env vars show up in `docker inspect`
-  output and in any orchestrator's pod spec. The image already runs
-  as nonroot uid 65532.
-- `insecure: true` is the default because SSV ships self-signed
-  certs. Once your site maintains an internal PKI, plan to flip it
-  off — the custom CA pool flag is on the roadmap.
+![prom-clip Export — reading from the connected Prometheus, with a
+`ssv_.*` metric filter and a 30 s step.](web-help/clip-02-export.png)
 
-# 17. Companion tool: prom-clip
+![prom-clip Import — replays a clip into the target Prometheus over the
+remote-write protocol.](web-help/clip-03-import.png)
 
-A second binary, `prom-clip`, ships in this repo to **clip a time
-window from one Prometheus and replay it into another**. The wire
-format is gzipped OpenMetrics (`.txt.gz`); the replay path uses
-Prometheus's remote-write protocol.
-
-Typical uses:
-
-- snapshot a customer site that runs the exporter, mail or share the
-  `.txt.gz`, replay it into a local lab for triage;
-- ship a demo dataset alongside the dashboards;
-- carry a "before / after" comparison between sites that aren't
-  network-connected.
-
-## 17.1 Two modes from one binary
-
-**Web UI (default).** Run `prom-clip` with no arguments. The UI
-listens on `http://127.0.0.1:8088` (loopback only — no Windows
-Firewall prompt) and opens in the default browser. The mode is
-**ephemeral by default**: state lives in RAM, exports stream
-directly to the browser's native Save-As dialog and are removed
-server-side as soon as the download completes. Nothing accumulates
-on the host that ran the tool.
-
-Pass `-state-dir <path>` to opt into persistent mode (last
-connection memorised across sessions, exports accumulated under
-`<state-dir>/exports`, rotation via `-keep-exports N`). On Windows
-that path follows the OS convention when you let prom-clip pick a
-default (`%LOCALAPPDATA%\prom-clip`); on Linux/macOS it follows XDG
-(`~/.local/state/prom-clip`).
-
-**One-shot CLI.** No server, no port, no state directory. Idiomatic
-for scripts and CI:
+The same binary runs headless, with no server, port or state directory:
 
 ```sh
 prom-clip export -src http://prom-source:9090 \
                  -from -1h -to now -step 30s \
                  -metric '^ssv_.*' \
                  -out snapshot.txt.gz
-
 prom-clip import -dst http://prom-target:9090 \
                  -in snapshot.txt.gz
 ```
 
-`-from` / `-to` accept RFC3339 (`2026-05-21T09:00:00Z`), a Go
-duration interpreted as `now+d` (so `-1h` is "one hour ago"), or
-the literal `now`. The `-step` defaults to 15 s.
+`-from`/`-to` accept RFC3339, a Go duration (`-1h`), or `now`. Pass
+`-state-dir <path>` to opt into persistent mode. **Import requires** the
+target Prometheus to run with `--web.enable-remote-write-receiver` and a
+wide-enough `storage.tsdb.out_of_order_time_window`; the bundled stack
+exposes both behind `PROM_REMOTE_WRITE` (section 6).
 
-## 17.2 Receiver-side requirements
+# 12. Troubleshooting
 
-The target Prometheus must run with both:
+| Symptom | Cause / fix |
+|---------|-------------|
+| `ssv_up=0` on all collectors | Bad credentials, wrong `ServerHost`, or a stale session token. Check `docker compose logs exporter`. |
+| HTTP 400 / `ErrorCode 9` | Missing/hostname `ServerHost` header. It must be the IP being hit. |
+| Grafana panels empty for a group | The Group dropdown doesn't match a scraped target, or that exporter's performance tier is down. |
+| prom-clip import "succeeds" but nothing lands | Target Prometheus has no out-of-order window — set `PROM_REMOTE_WRITE=1` + `PROM_OOO_WINDOW`. |
+| Data looks stale | SSV's REST cache is 30 s by default (`RequestExpirationTime`). |
 
-- `--web.enable-remote-write-receiver` — otherwise `/api/v1/write`
-  returns HTTP 404;
-- `storage.tsdb.out_of_order_time_window` set wide enough to cover
-  the imported window — otherwise Prometheus returns HTTP 200 on the
-  write and **silently** drops every sample older than ~2 h
-  (the current head block).
+# 13. Releases
 
-Both are off by default in stock Prometheus, on purpose: pull is
-the standard mode. The bundled `deploy/` stack exposes them behind
-a single env variable: set `PROM_REMOTE_WRITE=1` in `deploy/.env`
-(optionally with `PROM_OOO_WINDOW=7d`) before bringing the stack
-up.
-
-## 17.3 Optional S3 push
-
-When the export finishes, the web UI can also push the `.txt.gz`
-to an S3-compatible bucket configured under **Settings → S3
-target** (`prom put`-style: private 24 h presigned URL, or a
-direct URL for a public bucket). Useful to mail a customer a
-single link rather than an attachment.
-
-## 17.4 Run prom-clip from the compose stack
-
-The `deploy/` stack ships a `clip` compose profile that runs
-prom-clip alongside Prometheus + Grafana on the same Docker
-network. The UI reaches the stack's Prometheus by hostname
-(`http://prometheus:9090`):
-
-```sh
-cd deploy
-docker compose --profile clip up -d --build
-# UI: http://127.0.0.1:8088 (loopback only — no firewall prompt)
-```
-
-Combine with `--profile full` to also run the ssv-prom-exporter
-in the same stack:
-
-```sh
-docker compose --profile full --profile clip up -d --build
-```
-
-State persists on a named Docker volume `prom-clip-state` so the
-last Prometheus connection survives `docker compose restart`. To
-wipe history: `docker compose --profile clip down -v`.
-
-A pre-built multi-arch image (linux/amd64 + linux/arm64) is
-published on GHCR with every release at
-`ghcr.io/lblanc/prom-clip:vX.Y.Z` / `:latest`. To reach a
-Prometheus running on the Docker host (not in the compose
-network), the container resolves
-`http://host.docker.internal:9090`.
-
-# 18. Where to go next
-
-- Read the deck shipped next to this guide for the design intent and
-  the AI-assisted build process.
-- Open `/metrics` on a live instance to see the actual surface.
-- File issues / PRs at <https://github.com/lblanc/ssv-prom-exporter>.
+Releases are produced by GitHub Actions on an annotated `v*` tag. Each
+release ships the Windows `.exe`, the MSI, a Linux tarball,
+`SHA256SUMS`, and multi-arch GHCR images for both `ssv-prom-exporter`
+and `prom-clip`. The latest release is **v0.9.0** (2026-06-04). See the
+project's GitHub Releases for the full list and `CHANGELOG.md` for
+per-version notes.
